@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Starboard
+
+[![100% AI](https://img.shields.io/badge/Built%20with-100%25%20AI-blueviolet?style=for-the-badge)](https://claude.ai)
+[![Live](https://img.shields.io/badge/Live-mystarboard.vercel.app-black?style=for-the-badge)](https://mystarboard.vercel.app)
+
+Organize and filter your GitHub starred repos. Search, tag, categorize, and collect your stars in one place.
+
+## Features
+
+- **GitHub OAuth** — Sign in and sync your starred repos
+- **Smart Categories** — Auto-categorize repos (AI/ML, Frontend, DevOps, etc.)
+- **Custom Tags** — Create and assign colored tags to repos
+- **Collections** — Group repos into named collections
+- **Search** — Full-text search across name, description, and topics
+- **Filter** — By language, category, tag, or collection
+- **Sort** — Recently starred, most stars, recently updated, A-Z
+- **Grid / List Views** — Toggle between card grid and compact list
+- **Dark Mode** — Dark by default
+- **Virtual Scroll** — Smooth performance with 1000+ repos
+- **Manual Sync** — Sync on demand, see what's added/removed
+
+## Tech Stack
+
+- **Next.js 16** (App Router)
+- **Tailwind CSS** + **shadcn/ui**
+- **NextAuth v5** (GitHub OAuth)
+- **Turso** (libSQL edge database)
+- **SWR** for client-side data fetching
+- **@tanstack/react-virtual** for virtualized scrolling
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
+cp .env.example .env.local  # fill in your credentials
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+AUTH_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
+AUTH_TRUST_HOST=true
+```
