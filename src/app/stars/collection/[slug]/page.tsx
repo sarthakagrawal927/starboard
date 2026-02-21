@@ -83,8 +83,32 @@ export default function CollectionPage() {
 
   if (status === "loading") {
     return (
-      <div className="flex h-svh items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex h-svh flex-col">
+        <div className="mx-auto w-full max-w-6xl p-4 md:p-6">
+          <Skeleton className="mb-4 h-8 w-32" />
+          <div className="mb-6 space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col rounded-lg border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="size-6 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+                <Skeleton className="mt-3 h-3 w-full" />
+                <Skeleton className="mt-1.5 h-3 w-3/4" />
+                <div className="mt-auto pt-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-3 w-10" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -112,7 +136,7 @@ export default function CollectionPage() {
               <Skeleton className="h-4 w-96" />
             </div>
           ) : collection ? (
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-3">
                   <FolderOpen className="size-6 text-muted-foreground" />
@@ -135,7 +159,7 @@ export default function CollectionPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="shrink-0 gap-1.5 text-destructive hover:text-destructive"
+                className="shrink-0 gap-1.5 self-start text-destructive hover:text-destructive"
                 onClick={handleDeleteCollection}
                 disabled={isDeleting}
               >
@@ -160,7 +184,7 @@ export default function CollectionPage() {
           <div
             className={
               viewMode === "grid"
-                ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+                ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
                 : "flex flex-col gap-2"
             }
           >
@@ -190,7 +214,7 @@ export default function CollectionPage() {
             <h3 className="text-lg font-medium text-foreground">
               This collection is empty
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
               Add repos to this collection using the folder icon on any repo
               card.
             </p>
@@ -199,7 +223,7 @@ export default function CollectionPage() {
           <div
             className={
               viewMode === "grid"
-                ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+                ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
                 : "flex flex-col gap-2"
             }
           >

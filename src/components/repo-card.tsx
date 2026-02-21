@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { StarredRepo } from "@/lib/github";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink } from "lucide-react";
@@ -81,17 +82,33 @@ export function RepoCard({
     ? languageColors[repo.language] ?? "#8b8b8b"
     : null;
 
+  const isGitHubAvatar = repo.owner.avatar_url.includes(
+    "avatars.githubusercontent.com"
+  );
+
+  const avatar = isGitHubAvatar ? (
+    <Image
+      src={repo.owner.avatar_url}
+      alt={repo.owner.login}
+      width={viewMode === "list" ? 32 : 24}
+      height={viewMode === "list" ? 32 : 24}
+      className={`rounded-full ${viewMode === "list" ? "size-8" : "size-6"}`}
+    />
+  ) : (
+    <img
+      src={repo.owner.avatar_url}
+      alt={repo.owner.login}
+      className={viewMode === "list" ? "size-8 rounded-full" : "size-6 rounded-full"}
+      loading="lazy"
+    />
+  );
+
   if (viewMode === "list") {
     return (
-      <div className="group flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50">
-        <img
-          src={repo.owner.avatar_url}
-          alt={repo.owner.login}
-          className="size-8 rounded-full"
-          loading="lazy"
-        />
+      <div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 sm:gap-4 sm:p-4">
+        <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <a
               href={repo.html_url}
               target="_blank"
@@ -104,7 +121,7 @@ export function RepoCard({
               {repo.name}
             </a>
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="ml-auto flex shrink-0 items-center gap-3">
+            <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
               {allTags && (
                 <TagPicker repoId={repo.id} tags={allTags} />
               )}
@@ -112,7 +129,7 @@ export function RepoCard({
                 <CollectionPicker repoId={repo.id} collections={collections} />
               )}
               {repo.language && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
                   <span
                     className="inline-block size-2.5 rounded-full"
                     style={{ backgroundColor: langColor ?? undefined }}
@@ -165,12 +182,7 @@ export function RepoCard({
   return (
     <div className="group flex flex-col rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50">
       <div className="flex items-start gap-3">
-        <img
-          src={repo.owner.avatar_url}
-          alt={repo.owner.login}
-          className="size-6 rounded-full"
-          loading="lazy"
-        />
+        <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
           <a
             href={repo.html_url}

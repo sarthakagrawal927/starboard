@@ -3,7 +3,8 @@
 import { StarredRepo } from "@/lib/github";
 import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Inbox } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Inbox, RotateCcw } from "lucide-react";
 
 interface Tag {
   id: number;
@@ -27,6 +28,8 @@ interface RepoGridProps {
   isLoading: boolean;
   tags?: Tag[];
   collections?: Collection[];
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
@@ -69,13 +72,21 @@ function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
   );
 }
 
-export function RepoGrid({ repos, viewMode, isLoading, tags, collections }: RepoGridProps) {
+export function RepoGrid({
+  repos,
+  viewMode,
+  isLoading,
+  tags,
+  collections,
+  hasActiveFilters,
+  onClearFilters,
+}: RepoGridProps) {
   if (isLoading) {
     return (
       <div
         className={
           viewMode === "grid"
-            ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             : "flex flex-col gap-2"
         }
       >
@@ -93,9 +104,21 @@ export function RepoGrid({ repos, viewMode, isLoading, tags, collections }: Repo
         <h3 className="text-lg font-medium text-foreground">
           No repos match your filters
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Try adjusting your search or filter criteria.
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          Try adjusting your search or filter criteria to find what you are
+          looking for.
         </p>
+        {hasActiveFilters && onClearFilters && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4 gap-2"
+            onClick={onClearFilters}
+          >
+            <RotateCcw className="size-3.5" />
+            Reset all filters
+          </Button>
+        )}
       </div>
     );
   }
@@ -104,7 +127,7 @@ export function RepoGrid({ repos, viewMode, isLoading, tags, collections }: Repo
     <div
       className={
         viewMode === "grid"
-          ? "grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
+          ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           : "flex flex-col gap-2"
       }
     >

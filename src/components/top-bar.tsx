@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu,
   Check,
+  X,
 } from "lucide-react";
 
 export type SortOption =
@@ -43,6 +44,8 @@ interface TopBarProps {
   onViewModeChange: (mode: "grid" | "list") => void;
   onMenuClick?: () => void;
   repoCount?: number;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 export function TopBar({
@@ -54,16 +57,18 @@ export function TopBar({
   onViewModeChange,
   onMenuClick,
   repoCount,
+  hasActiveFilters,
+  onClearFilters,
 }: TopBarProps) {
   const { data: session } = useSession();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur-sm md:px-6">
+    <header className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2.5 backdrop-blur-sm sm:gap-3 sm:px-4 sm:py-3 md:px-6">
       {onMenuClick && (
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="shrink-0 md:hidden"
           onClick={onMenuClick}
           aria-label="Toggle sidebar"
         >
@@ -71,7 +76,7 @@ export function TopBar({
         </Button>
       )}
 
-      <div className="relative flex-1">
+      <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search repos..."
@@ -85,6 +90,19 @@ export function TopBar({
         <span className="hidden shrink-0 text-sm text-muted-foreground lg:inline">
           {repoCount} {repoCount === 1 ? "repo" : "repos"}
         </span>
+      )}
+
+      {hasActiveFilters && onClearFilters && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5 text-xs"
+          onClick={onClearFilters}
+        >
+          <X className="size-3" />
+          <span className="hidden sm:inline">Clear filters</span>
+          <span className="sm:hidden">Clear</span>
+        </Button>
       )}
 
       <DropdownMenu>

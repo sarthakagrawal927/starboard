@@ -7,6 +7,7 @@ import { categories, categorizeRepos } from "@/lib/categories";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Code2,
@@ -38,6 +39,7 @@ interface Collection {
 
 interface SidebarProps {
   repos: StarredRepo[];
+  isLoading?: boolean;
   selectedLanguages: string[];
   onLanguageToggle: (language: string) => void;
   selectedCategory: string | null;
@@ -52,8 +54,62 @@ interface SidebarProps {
   onCreateCollection: (name: string, description?: string) => Promise<unknown>;
 }
 
+function SidebarSkeleton() {
+  return (
+    <div className="flex flex-col gap-1 p-4">
+      {/* Languages skeleton */}
+      <div className="flex items-center gap-2 px-2 py-1">
+        <Skeleton className="size-4" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="mt-1 flex flex-col gap-0.5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+            <Skeleton className="size-3.5" />
+            <Skeleton className="h-3 flex-1" style={{ maxWidth: `${80 - i * 8}%` }} />
+            <Skeleton className="h-3 w-6" />
+          </div>
+        ))}
+      </div>
+
+      <Separator className="my-3" />
+
+      {/* Categories skeleton */}
+      <div className="flex items-center gap-2 px-2 py-1">
+        <Skeleton className="size-4" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="mt-1 flex flex-col gap-0.5">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+            <Skeleton className="h-3 flex-1" style={{ maxWidth: `${70 - i * 6}%` }} />
+            <Skeleton className="h-3 w-6" />
+          </div>
+        ))}
+      </div>
+
+      <Separator className="my-3" />
+
+      {/* Tags skeleton */}
+      <div className="flex items-center gap-2 px-2 py-1">
+        <Skeleton className="size-4" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+
+      <Separator className="my-3" />
+
+      {/* Collections skeleton */}
+      <div className="flex items-center gap-2 px-2 py-1">
+        <Skeleton className="size-4" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar({
   repos,
+  isLoading,
   selectedLanguages,
   onLanguageToggle,
   selectedCategory,
@@ -89,6 +145,10 @@ export function Sidebar({
       count: grouped[cat.slug]?.length ?? 0,
     }));
   }, [repos]);
+
+  if (isLoading) {
+    return <SidebarSkeleton />;
+  }
 
   return (
     <>
@@ -179,8 +239,8 @@ export function Sidebar({
               </button>
             ))}
             {tags.length === 0 && (
-              <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                No tags yet
+              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                Create tags to label your repos
               </p>
             )}
           </div>
@@ -216,8 +276,8 @@ export function Sidebar({
               </Link>
             ))}
             {collections.length === 0 && (
-              <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                No collections yet
+              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                Create collections to organize repos
               </p>
             )}
           </div>

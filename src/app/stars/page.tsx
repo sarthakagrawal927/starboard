@@ -11,12 +11,74 @@ import { TopBar, type SortOption } from "@/components/top-bar";
 import { Sidebar } from "@/components/sidebar";
 import { RepoGrid } from "@/components/repo-grid";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+
+function PageSkeleton() {
+  return (
+    <>
+      {/* Top bar skeleton */}
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur-sm md:px-6">
+        <Skeleton className="h-9 flex-1 rounded-md" />
+        <Skeleton className="hidden h-8 w-36 rounded-md sm:block" />
+        <Skeleton className="hidden h-8 w-20 rounded-md sm:block" />
+        <Skeleton className="size-8 rounded-full" />
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* Sidebar skeleton */}
+        <aside className="hidden w-[280px] shrink-0 border-r md:block">
+          <div className="flex flex-col gap-1 p-4">
+            {Array.from({ length: 3 }).map((_, section) => (
+              <div key={section}>
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <Skeleton className="size-4" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-2.5 px-2 py-1.5">
+                      <Skeleton className="h-3 flex-1" />
+                      <Skeleton className="h-3 w-6" />
+                    </div>
+                  ))}
+                </div>
+                {section < 2 && <div className="my-3 h-px bg-border" />}
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        {/* Main content skeleton */}
+        <div className="flex-1 p-4 md:p-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col rounded-lg border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="size-6 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+                <Skeleton className="mt-3 h-3 w-full" />
+                <Skeleton className="mt-1.5 h-3 w-3/4" />
+                <div className="mt-auto pt-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-3 w-10" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function StarsPage() {
   const { status } = useSession();
@@ -29,8 +91,8 @@ export default function StarsPage() {
 
   // Data hooks
   const { repos, isLoading: reposLoading } = useStarredRepos();
-  const { tags, createTag } = useTags();
-  const { collections, createCollection } = useCollections();
+  const { tags, isLoading: tagsLoading, createTag } = useTags();
+  const { collections, isLoading: collectionsLoading, createCollection } = useCollections();
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,6 +105,25 @@ export default function StarsPage() {
     number | null
   >(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      searchQuery.trim().length > 0 ||
+      selectedLanguages.length > 0 ||
+      selectedCategory !== null ||
+      selectedTagId !== null ||
+      selectedCollectionId !== null
+    );
+  }, [searchQuery, selectedLanguages, selectedCategory, selectedTagId, selectedCollectionId]);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setSelectedLanguages([]);
+    setSelectedCategory(null);
+    setSelectedTagId(null);
+    setSelectedCollectionId(null);
+  }, []);
 
   // Filter and sort repos
   const filteredRepos = useMemo(() => {
@@ -109,11 +190,7 @@ export default function StarsPage() {
 
   // Loading/auth state
   if (status === "loading") {
-    return (
-      <div className="flex h-svh items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (status === "unauthenticated") {
@@ -123,6 +200,7 @@ export default function StarsPage() {
   const sidebarContent = (
     <Sidebar
       repos={repos}
+      isLoading={reposLoading || tagsLoading || collectionsLoading}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
       selectedCategory={selectedCategory}
@@ -149,6 +227,8 @@ export default function StarsPage() {
         onViewModeChange={setViewMode}
         onMenuClick={() => setSidebarOpen(true)}
         repoCount={filteredRepos.length}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -178,6 +258,8 @@ export default function StarsPage() {
               isLoading={reposLoading}
               tags={tags}
               collections={collections}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearFilters}
             />
           </main>
         </ScrollArea>
