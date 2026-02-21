@@ -67,6 +67,9 @@ interface RepoCardProps {
   repo: StarredRepo;
   tags?: Tag[];
   allTags?: Tag[];
+  assignedTagIds?: number[];
+  onAssignTag?: (repoId: number, tagId: number) => void;
+  onRemoveTag?: (repoId: number, tagId: number) => void;
   collections?: Collection[];
   viewMode?: "grid" | "list";
 }
@@ -75,6 +78,9 @@ export function RepoCard({
   repo,
   tags,
   allTags,
+  assignedTagIds = [],
+  onAssignTag,
+  onRemoveTag,
   collections,
   viewMode = "grid",
 }: RepoCardProps) {
@@ -122,8 +128,8 @@ export function RepoCard({
             </a>
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-              {allTags && (
-                <TagPicker repoId={repo.id} tags={allTags} />
+              {allTags && onAssignTag && onRemoveTag && (
+                <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
               )}
               {collections && collections.length > 0 && (
                 <CollectionPicker repoId={repo.id} collections={collections} />
@@ -200,8 +206,8 @@ export function RepoCard({
           </a>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          {allTags && (
-            <TagPicker repoId={repo.id} tags={allTags} />
+          {allTags && onAssignTag && onRemoveTag && (
+            <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
           )}
           {collections && collections.length > 0 && (
             <CollectionPicker repoId={repo.id} collections={collections} />

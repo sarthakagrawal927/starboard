@@ -1,6 +1,10 @@
 import { SignInButton } from "@/components/sign-in-button";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  if (session) redirect("/stars");
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-background dark:bg-[oklch(0.1_0_0)]">
       <main className="flex w-full max-w-4xl flex-col items-center gap-16 px-6 py-24">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { StarredRepo } from "@/lib/github";
 import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +30,9 @@ interface RepoGridProps {
   isLoading: boolean;
   tags?: Tag[];
   collections?: Collection[];
+  repoTagMap?: Record<number, number[]>;
+  onAssignTag?: (repoId: number, tagId: number) => void;
+  onRemoveTag?: (repoId: number, tagId: number) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
 }
@@ -78,9 +83,38 @@ export function RepoGrid({
   isLoading,
   tags,
   collections,
+  repoTagMap = {},
+  onAssignTag,
+  onRemoveTag,
   hasActiveFilters,
   onClearFilters,
 }: RepoGridProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // For grid mode, group repos into rows
+  // We need to know the column count — use a fixed approach based on common breakpoints
+  // Grid: 1 col < 640px, 2 cols 640-1024px, 3 cols 1024px+
+  // For virtualization, we'll use list mode virtualization for both views
+  // Grid items get rendered in rows
+
+  const columns = viewMode === "grid" ? 3 : 1;
+
+  const rows = useMemo(() => {
+    if (viewMode === "list") return repos.map((r) => [r]);
+    const result: StarredRepo[][] = [];
+    for (let i = 0; i < repos.length; i += columns) {
+      result.push(repos.slice(i, i + columns));
+    }
+    return result;
+  }, [repos, viewMode, columns]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => (viewMode === "grid" ? 240 : 100),
+    overscan: 5,
+  });
+
   if (isLoading) {
     return (
       <div
@@ -124,22 +158,54 @@ export function RepoGrid({
   }
 
   return (
-    <div
-      className={
-        viewMode === "grid"
-          ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
-          : "flex flex-col gap-2"
-      }
-    >
-      {repos.map((repo) => (
-        <RepoCard
-          key={repo.id}
-          repo={repo}
-          viewMode={viewMode}
-          allTags={tags}
-          collections={collections}
-        />
-      ))}
+    <div ref={parentRef} className="h-[calc(100svh-65px)] overflow-auto">
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const rowRepos = rows[virtualRow.index];
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 gap-3 px-0 pb-3 sm:grid-cols-2 lg:grid-cols-3"
+                  : "pb-2"
+              }
+            >
+              {rowRepos.map((repo) => {
+                const assignedIds = repoTagMap[repo.id] ?? [];
+                const assignedTags = tags?.filter((t) => assignedIds.includes(t.id));
+                return (
+                  <RepoCard
+                    key={repo.id}
+                    repo={repo}
+                    viewMode={viewMode}
+                    tags={assignedTags}
+                    allTags={tags}
+                    assignedTagIds={assignedIds}
+                    onAssignTag={onAssignTag}
+                    onRemoveTag={onRemoveTag}
+                    collections={collections}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

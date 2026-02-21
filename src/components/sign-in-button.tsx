@@ -7,7 +7,7 @@ export function SignInButton() {
   return (
     <Button
       size="lg"
-      onClick={() => signIn("github")}
+      onClick={() => signIn("github", { callbackUrl: "/stars" })}
       className="h-12 gap-3 px-8 text-base"
     >
       <svg

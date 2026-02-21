@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import useSWR from "swr";
 import { Tag as TagIcon } from "lucide-react";
 import {
   Popover,
@@ -21,48 +20,24 @@ interface Tag {
 interface TagPickerProps {
   repoId: number;
   tags: Tag[];
+  assignedTagIds: number[];
+  onAssignTag: (repoId: number, tagId: number) => void;
+  onRemoveTag: (repoId: number, tagId: number) => void;
   trigger?: React.ReactNode;
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-export function TagPicker({ repoId, tags, trigger }: TagPickerProps) {
-  const {
-    data: assignedTags,
-    mutate,
-  } = useSWR<Tag[]>(`/api/repos/${repoId}/tags`, fetcher);
-
-  const assignedIds = new Set(assignedTags?.map((t) => t.id) ?? []);
+export function TagPicker({ repoId, tags, assignedTagIds, onAssignTag, onRemoveTag, trigger }: TagPickerProps) {
+  const assignedSet = new Set(assignedTagIds);
 
   const toggleTag = useCallback(
-    async (tagId: number, isCurrentlyAssigned: boolean) => {
+    (tagId: number, isCurrentlyAssigned: boolean) => {
       if (isCurrentlyAssigned) {
-        // Optimistic: remove from local state
-        mutate(
-          (prev) => (prev ?? []).filter((t) => t.id !== tagId),
-          false
-        );
-        await fetch(`/api/repos/${repoId}/tags`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tagId }),
-        });
+        onRemoveTag(repoId, tagId);
       } else {
-        // Optimistic: add to local state
-        const tag = tags.find((t) => t.id === tagId);
-        if (tag) {
-          mutate((prev) => [...(prev ?? []), tag], false);
-        }
-        await fetch(`/api/repos/${repoId}/tags`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tagId }),
-        });
+        onAssignTag(repoId, tagId);
       }
-      // Revalidate after mutation
-      mutate();
     },
-    [repoId, tags, mutate]
+    [repoId, onAssignTag, onRemoveTag]
   );
 
   return (
@@ -71,9 +46,9 @@ export function TagPicker({ repoId, tags, trigger }: TagPickerProps) {
         {trigger ?? (
           <Button
             variant="ghost"
-            size="icon-xs"
+            size="icon"
             aria-label="Manage tags"
-            className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+            className="size-7 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
           >
             <TagIcon className="size-3.5" />
           </Button>
@@ -90,7 +65,7 @@ export function TagPicker({ repoId, tags, trigger }: TagPickerProps) {
         ) : (
           <div className="flex flex-col gap-0.5">
             {tags.map((tag) => {
-              const checked = assignedIds.has(tag.id);
+              const checked = assignedSet.has(tag.id);
               return (
                 <label
                   key={tag.id}

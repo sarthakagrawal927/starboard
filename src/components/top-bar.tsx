@@ -20,6 +20,8 @@ import {
   Menu,
   Check,
   X,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 export type SortOption =
@@ -46,6 +48,9 @@ interface TopBarProps {
   repoCount?: number;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
+  syncing?: boolean;
+  onSync?: () => void;
+  fetchedAt?: string | null;
 }
 
 export function TopBar({
@@ -59,6 +64,9 @@ export function TopBar({
   repoCount,
   hasActiveFilters,
   onClearFilters,
+  syncing,
+  onSync,
+  fetchedAt,
 }: TopBarProps) {
   const { data: session } = useSession();
 
@@ -90,6 +98,24 @@ export function TopBar({
         <span className="hidden shrink-0 text-sm text-muted-foreground lg:inline">
           {repoCount} {repoCount === 1 ? "repo" : "repos"}
         </span>
+      )}
+
+      {onSync && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5 text-xs"
+          onClick={onSync}
+          disabled={syncing}
+          title={fetchedAt ? `Last synced: ${new Date(fetchedAt).toLocaleString()}` : "Never synced"}
+        >
+          {syncing ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="size-3.5" />
+          )}
+          <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync"}</span>
+        </Button>
       )}
 
       {hasActiveFilters && onClearFilters && (

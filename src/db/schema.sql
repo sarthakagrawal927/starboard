@@ -33,3 +33,10 @@ CREATE TABLE IF NOT EXISTS collection_repos (
   collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
   repo_id INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS stars_cache (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  repos_json TEXT NOT NULL,
+  etag TEXT,
+  fetched_at TEXT DEFAULT (datetime('now'))
+);

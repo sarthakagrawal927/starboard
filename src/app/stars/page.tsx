@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useStarredRepos } from "@/hooks/use-starred-repos";
 import { useTags } from "@/hooks/use-tags";
 import { useCollections } from "@/hooks/use-collections";
+import { useRepoTags } from "@/hooks/use-repo-tags";
 import { categories } from "@/lib/categories";
 import { TopBar, type SortOption } from "@/components/top-bar";
 import { Sidebar } from "@/components/sidebar";
@@ -90,9 +91,10 @@ export default function StarsPage() {
   }
 
   // Data hooks
-  const { repos, isLoading: reposLoading } = useStarredRepos();
+  const { repos, fetchedAt, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult } = useStarredRepos();
   const { tags, isLoading: tagsLoading, createTag } = useTags();
   const { collections, isLoading: collectionsLoading, createCollection } = useCollections();
+  const { repoTagMap, assignTag, removeTag } = useRepoTags();
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -154,6 +156,14 @@ export default function StarsPage() {
       }
     }
 
+    // Tag filter
+    if (selectedTagId !== null) {
+      result = result.filter((repo) => {
+        const tagIds = repoTagMap[repo.id] ?? [];
+        return tagIds.includes(selectedTagId);
+      });
+    }
+
     // Sort
     switch (sortBy) {
       case "most-stars":
@@ -178,7 +188,7 @@ export default function StarsPage() {
     }
 
     return result;
-  }, [repos, searchQuery, selectedLanguages, selectedCategory, sortBy]);
+  }, [repos, searchQuery, selectedLanguages, selectedCategory, selectedTagId, repoTagMap, sortBy]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
@@ -229,7 +239,54 @@ export default function StarsPage() {
         repoCount={filteredRepos.length}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={clearFilters}
+        syncing={syncing}
+        onSync={sync}
+        fetchedAt={fetchedAt}
       />
+
+      {/* Sync result banner */}
+      {syncResult && !syncResult.unchanged && (
+        <div className="border-b bg-card px-4 py-3 md:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="text-sm">
+              <p className="font-medium">Sync complete</p>
+              {syncResult.added.length > 0 && (
+                <p className="mt-1 text-green-500">
+                  + {syncResult.added.length} new: {syncResult.added.map((r) => r.full_name).join(", ")}
+                </p>
+              )}
+              {syncResult.removed.length > 0 && (
+                <p className="mt-1 text-red-400">
+                  - {syncResult.removed.length} unstarred: {syncResult.removed.map((r) => r.full_name).join(", ")}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={dismissSyncResult}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state: no cache yet */}
+      {!reposLoading && repos.length === 0 && !fetchedAt && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="text-lg font-medium">No stars synced yet</p>
+          <p className="text-sm text-muted-foreground">
+            Click Sync to fetch your GitHub starred repos.
+          </p>
+          <button
+            onClick={sync}
+            disabled={syncing}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {syncing ? "Syncing..." : "Sync now"}
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {/* Desktop sidebar */}
@@ -258,6 +315,9 @@ export default function StarsPage() {
               isLoading={reposLoading}
               tags={tags}
               collections={collections}
+              repoTagMap={repoTagMap}
+              onAssignTag={assignTag}
+              onRemoveTag={removeTag}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
             />
