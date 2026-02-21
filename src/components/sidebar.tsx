@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { StarredRepo } from "@/lib/github";
 import { categories, categorizeRepos } from "@/lib/categories";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreateTagDialog } from "@/components/create-tag-dialog";
+import { CreateCollectionDialog } from "@/components/create-collection-dialog";
 
 interface Tag {
   id: number;
@@ -47,6 +49,7 @@ interface SidebarProps {
   selectedCollectionId: number | null;
   onCollectionSelect: (id: number | null) => void;
   onCreateTag: (name: string, color: string) => Promise<unknown>;
+  onCreateCollection: (name: string, description?: string) => Promise<unknown>;
 }
 
 export function Sidebar({
@@ -62,8 +65,10 @@ export function Sidebar({
   selectedCollectionId,
   onCollectionSelect,
   onCreateTag,
+  onCreateCollection,
 }: SidebarProps) {
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
 
   const languageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -185,28 +190,30 @@ export function Sidebar({
           {/* Collections */}
           <div className="flex items-center justify-between">
             <SectionHeader icon={FolderOpen} label="Collections" />
-            <Button variant="ghost" size="icon-xs" aria-label="New Collection">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="New Collection"
+              onClick={() => setCollectionDialogOpen(true)}
+            >
               <Plus className="size-3.5" />
             </Button>
           </div>
           <div className="mt-1 flex flex-col gap-0.5">
             {collections.map((col) => (
-              <button
+              <Link
                 key={col.id}
-                onClick={() =>
-                  onCollectionSelect(
-                    selectedCollectionId === col.id ? null : col.id
-                  )
-                }
+                href={`/stars/collection/${col.slug}`}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
                   selectedCollectionId === col.id &&
                     "bg-accent text-accent-foreground"
                 )}
+                onClick={() => onCollectionSelect(col.id)}
               >
                 <Hash className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{col.name}</span>
-              </button>
+              </Link>
             ))}
             {collections.length === 0 && (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">
@@ -222,6 +229,14 @@ export function Sidebar({
         onOpenChange={setTagDialogOpen}
         onCreateTag={async (name, color) => {
           await onCreateTag(name, color);
+        }}
+      />
+
+      <CreateCollectionDialog
+        open={collectionDialogOpen}
+        onOpenChange={setCollectionDialogOpen}
+        onCreateCollection={async (name, description) => {
+          await onCreateCollection(name, description);
         }}
       />
     </>

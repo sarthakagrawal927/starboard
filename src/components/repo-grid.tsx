@@ -12,11 +12,21 @@ interface Tag {
   color: string;
 }
 
+interface Collection {
+  id: number;
+  user_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+}
+
 interface RepoGridProps {
   repos: StarredRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
   tags?: Tag[];
+  collections?: Collection[];
 }
 
 function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
@@ -59,7 +69,7 @@ function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
   );
 }
 
-export function RepoGrid({ repos, viewMode, isLoading, tags }: RepoGridProps) {
+export function RepoGrid({ repos, viewMode, isLoading, tags, collections }: RepoGridProps) {
   if (isLoading) {
     return (
       <div
@@ -104,6 +114,7 @@ export function RepoGrid({ repos, viewMode, isLoading, tags }: RepoGridProps) {
           repo={repo}
           viewMode={viewMode}
           allTags={tags}
+          collections={collections}
         />
       ))}
     </div>

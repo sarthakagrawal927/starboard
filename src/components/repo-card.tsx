@@ -4,12 +4,22 @@ import { StarredRepo } from "@/lib/github";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
+import { CollectionPicker } from "@/components/collection-picker";
 
 interface Tag {
   id: number;
   user_id: string;
   name: string;
   color: string;
+}
+
+interface Collection {
+  id: number;
+  user_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
 }
 
 const languageColors: Record<string, string> = {
@@ -56,6 +66,7 @@ interface RepoCardProps {
   repo: StarredRepo;
   tags?: Tag[];
   allTags?: Tag[];
+  collections?: Collection[];
   viewMode?: "grid" | "list";
 }
 
@@ -63,6 +74,7 @@ export function RepoCard({
   repo,
   tags,
   allTags,
+  collections,
   viewMode = "grid",
 }: RepoCardProps) {
   const langColor = repo.language
@@ -95,6 +107,9 @@ export function RepoCard({
             <div className="ml-auto flex shrink-0 items-center gap-3">
               {allTags && (
                 <TagPicker repoId={repo.id} tags={allTags} />
+              )}
+              {collections && collections.length > 0 && (
+                <CollectionPicker repoId={repo.id} collections={collections} />
               )}
               {repo.language && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -172,9 +187,14 @@ export function RepoCard({
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
           </a>
         </div>
-        {allTags && (
-          <TagPicker repoId={repo.id} tags={allTags} />
-        )}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {allTags && (
+            <TagPicker repoId={repo.id} tags={allTags} />
+          )}
+          {collections && collections.length > 0 && (
+            <CollectionPicker repoId={repo.id} collections={collections} />
+          )}
+        </div>
       </div>
 
       {repo.description && (

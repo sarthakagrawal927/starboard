@@ -17,7 +17,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { StarredRepo } from "@/lib/github";
 
 export default function StarsPage() {
   const { status } = useSession();
@@ -31,7 +30,7 @@ export default function StarsPage() {
   // Data hooks
   const { repos, isLoading: reposLoading } = useStarredRepos();
   const { tags, createTag } = useTags();
-  const { collections } = useCollections();
+  const { collections, createCollection } = useCollections();
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,6 +134,7 @@ export default function StarsPage() {
       selectedCollectionId={selectedCollectionId}
       onCollectionSelect={setSelectedCollectionId}
       onCreateTag={createTag}
+      onCreateCollection={createCollection}
     />
   );
 
@@ -177,6 +177,7 @@ export default function StarsPage() {
               viewMode={viewMode}
               isLoading={reposLoading}
               tags={tags}
+              collections={collections}
             />
           </main>
         </ScrollArea>
