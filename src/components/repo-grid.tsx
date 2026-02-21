@@ -5,10 +5,18 @@ import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Inbox } from "lucide-react";
 
+interface Tag {
+  id: number;
+  user_id: string;
+  name: string;
+  color: string;
+}
+
 interface RepoGridProps {
   repos: StarredRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
+  tags?: Tag[];
 }
 
 function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
@@ -51,7 +59,7 @@ function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
   );
 }
 
-export function RepoGrid({ repos, viewMode, isLoading }: RepoGridProps) {
+export function RepoGrid({ repos, viewMode, isLoading, tags }: RepoGridProps) {
   if (isLoading) {
     return (
       <div
@@ -91,7 +99,12 @@ export function RepoGrid({ repos, viewMode, isLoading }: RepoGridProps) {
       }
     >
       {repos.map((repo) => (
-        <RepoCard key={repo.id} repo={repo} viewMode={viewMode} />
+        <RepoCard
+          key={repo.id}
+          repo={repo}
+          viewMode={viewMode}
+          allTags={tags}
+        />
       ))}
     </div>
   );

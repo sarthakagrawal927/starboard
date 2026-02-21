@@ -3,6 +3,7 @@
 import { StarredRepo } from "@/lib/github";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink } from "lucide-react";
+import { TagPicker } from "@/components/tag-picker";
 
 interface Tag {
   id: number;
@@ -54,10 +55,16 @@ function formatStarCount(count: number): string {
 interface RepoCardProps {
   repo: StarredRepo;
   tags?: Tag[];
+  allTags?: Tag[];
   viewMode?: "grid" | "list";
 }
 
-export function RepoCard({ repo, tags, viewMode = "grid" }: RepoCardProps) {
+export function RepoCard({
+  repo,
+  tags,
+  allTags,
+  viewMode = "grid",
+}: RepoCardProps) {
   const langColor = repo.language
     ? languageColors[repo.language] ?? "#8b8b8b"
     : null;
@@ -86,6 +93,9 @@ export function RepoCard({ repo, tags, viewMode = "grid" }: RepoCardProps) {
             </a>
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="ml-auto flex shrink-0 items-center gap-3">
+              {allTags && (
+                <TagPicker repoId={repo.id} tags={allTags} />
+              )}
               {repo.language && (
                 <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span
@@ -162,6 +172,9 @@ export function RepoCard({ repo, tags, viewMode = "grid" }: RepoCardProps) {
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
           </a>
         </div>
+        {allTags && (
+          <TagPicker repoId={repo.id} tags={allTags} />
+        )}
       </div>
 
       {repo.description && (

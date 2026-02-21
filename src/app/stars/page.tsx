@@ -30,7 +30,7 @@ export default function StarsPage() {
 
   // Data hooks
   const { repos, isLoading: reposLoading } = useStarredRepos();
-  const { tags } = useTags();
+  const { tags, createTag } = useTags();
   const { collections } = useCollections();
 
   // UI state
@@ -134,6 +134,7 @@ export default function StarsPage() {
       collections={collections}
       selectedCollectionId={selectedCollectionId}
       onCollectionSelect={setSelectedCollectionId}
+      onCreateTag={createTag}
     />
   );
 
@@ -175,6 +176,7 @@ export default function StarsPage() {
               repos={filteredRepos}
               viewMode={viewMode}
               isLoading={reposLoading}
+              tags={tags}
             />
           </main>
         </ScrollArea>
