@@ -1,40 +1,47 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { StarredRepo } from "@/lib/github";
-import { categories, categorizeRepos } from "@/lib/categories";
+import { UserRepo } from "@/hooks/use-starred-repos";
+import { UserList } from "@/hooks/use-lists";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Code2,
-  Layers,
+  List,
   Plus,
   Tag as TagIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CreateTagDialog } from "@/components/create-tag-dialog";
 
-interface Tag {
-  id: number;
-  user_id: string;
-  name: string;
-  color: string;
-}
+const PRESET_COLORS = [
+  "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
+  "#3b82f6", "#8b5cf6", "#ec4899", "#6366f1", "#64748b",
+];
 
 interface SidebarProps {
-  repos: StarredRepo[];
+  repos: UserRepo[];
   isLoading?: boolean;
   selectedLanguages: string[];
   onLanguageToggle: (language: string) => void;
-  selectedCategory: string | null;
-  onCategorySelect: (slug: string | null) => void;
-  tags: Tag[];
-  selectedTagId: number | null;
-  onTagSelect: (id: number | null) => void;
-  onCreateTag: (name: string, color: string) => Promise<unknown>;
+  lists: UserList[];
+  selectedListId: number | null;
+  onListSelect: (id: number | null) => void;
+  onCreateList: (name: string, color?: string) => Promise<unknown>;
+  allTags: string[];
+  selectedTag: string | null;
+  onTagSelect: (tag: string | null) => void;
 }
 
 function SidebarSkeleton() {
@@ -57,7 +64,7 @@ function SidebarSkeleton() {
 
       <Separator className="my-3" />
 
-      {/* Categories skeleton */}
+      {/* Lists skeleton */}
       <div className="flex items-center gap-2 px-2 py-1">
         <Skeleton className="size-4" />
         <Skeleton className="h-3 w-20" />
@@ -88,14 +95,18 @@ export function Sidebar({
   isLoading,
   selectedLanguages,
   onLanguageToggle,
-  selectedCategory,
-  onCategorySelect,
-  tags,
-  selectedTagId,
+  lists,
+  selectedListId,
+  onListSelect,
+  onCreateList,
+  allTags,
+  selectedTag,
   onTagSelect,
-  onCreateTag,
 }: SidebarProps) {
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [listDialogOpen, setListDialogOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [newListColor, setNewListColor] = useState(PRESET_COLORS[5]);
+  const [isCreatingList, setIsCreatingList] = useState(false);
 
   const languageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -109,13 +120,31 @@ export function Sidebar({
       .slice(0, 15);
   }, [repos]);
 
-  const categoryCounts = useMemo(() => {
-    const grouped = categorizeRepos(repos);
-    return categories.map((cat) => ({
-      ...cat,
-      count: grouped[cat.slug]?.length ?? 0,
-    }));
+  // Count repos per list
+  const listCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const repo of repos) {
+      if (repo.list_id != null) {
+        counts[repo.list_id] = (counts[repo.list_id] || 0) + 1;
+      }
+    }
+    return counts;
   }, [repos]);
+
+  async function handleCreateList(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = newListName.trim();
+    if (!trimmed) return;
+    setIsCreatingList(true);
+    try {
+      await onCreateList(trimmed, newListColor);
+      setNewListName("");
+      setNewListColor(PRESET_COLORS[5]);
+      setListDialogOpen(false);
+    } finally {
+      setIsCreatingList(false);
+    }
+  }
 
   if (isLoading) {
     return <SidebarSkeleton />;
@@ -153,65 +182,71 @@ export function Sidebar({
 
           <Separator className="my-3" />
 
-          {/* Categories */}
-          <SectionHeader icon={Layers} label="Categories" />
-          <div className="mt-1 flex flex-col gap-0.5">
-            {categoryCounts.map((cat) => (
-              <button
-                key={cat.slug}
-                onClick={() =>
-                  onCategorySelect(selectedCategory === cat.slug ? null : cat.slug)
-                }
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-                  selectedCategory === cat.slug &&
-                    "bg-accent text-accent-foreground"
-                )}
-              >
-                <span className="flex-1 truncate">{cat.name}</span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {cat.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <Separator className="my-3" />
-
-          {/* Tags */}
+          {/* Lists */}
           <div className="flex items-center justify-between">
-            <SectionHeader icon={TagIcon} label="Tags" />
+            <SectionHeader icon={List} label="Lists" />
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="New Tag"
-              onClick={() => setTagDialogOpen(true)}
+              aria-label="New List"
+              onClick={() => setListDialogOpen(true)}
             >
               <Plus className="size-3.5" />
             </Button>
           </div>
           <div className="mt-1 flex flex-col gap-0.5">
-            {tags.map((tag) => (
+            {lists.map((list) => (
               <button
-                key={tag.id}
+                key={list.id}
                 onClick={() =>
-                  onTagSelect(selectedTagId === tag.id ? null : tag.id)
+                  onListSelect(selectedListId === list.id ? null : list.id)
                 }
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-                  selectedTagId === tag.id && "bg-accent text-accent-foreground"
+                  selectedListId === list.id &&
+                    "bg-accent text-accent-foreground"
                 )}
               >
                 <span
                   className="inline-block size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: tag.color }}
+                  style={{ backgroundColor: list.color }}
                 />
-                <span className="flex-1 truncate">{tag.name}</span>
+                <span className="flex-1 truncate">{list.name}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {listCounts[list.id] ?? 0}
+                </span>
               </button>
             ))}
-            {tags.length === 0 && (
+            {lists.length === 0 && (
               <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                Create tags to label your repos
+                Create lists to organize your repos
+              </p>
+            )}
+          </div>
+
+          <Separator className="my-3" />
+
+          {/* Tags */}
+          <SectionHeader icon={TagIcon} label="Tags" />
+          <div className="mt-1 flex flex-col gap-0.5">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() =>
+                  onTagSelect(selectedTag === tag ? null : tag)
+                }
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                  selectedTag === tag && "bg-accent text-accent-foreground"
+                )}
+              >
+                <TagIcon className="size-3 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">{tag}</span>
+              </button>
+            ))}
+            {allTags.length === 0 && (
+              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+                Tags appear here when you add them to repos
               </p>
             )}
           </div>
@@ -219,14 +254,77 @@ export function Sidebar({
         </div>
       </ScrollArea>
 
-      <CreateTagDialog
-        open={tagDialogOpen}
-        onOpenChange={setTagDialogOpen}
-        onCreateTag={async (name, color) => {
-          await onCreateTag(name, color);
-        }}
-      />
+      {/* Create List Dialog */}
+      <Dialog open={listDialogOpen} onOpenChange={setListDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create List</DialogTitle>
+            <DialogDescription>
+              Add a new list to organize your starred repos.
+            </DialogDescription>
+          </DialogHeader>
 
+          <form onSubmit={handleCreateList} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="list-name" className="text-sm font-medium">
+                Name
+              </label>
+              <Input
+                id="list-name"
+                placeholder="e.g. Favorites, To Read..."
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Color</span>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    aria-label={preset}
+                    onClick={() => setNewListColor(preset)}
+                    className={cn(
+                      "size-7 rounded-full border-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      newListColor === preset
+                        ? "border-foreground scale-110"
+                        : "border-transparent"
+                    )}
+                    style={{ backgroundColor: preset }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            {newListName.trim() && (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+                <span
+                  className="inline-block size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: newListColor }}
+                />
+                <span className="text-sm">{newListName.trim()}</span>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setListDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!newListName.trim() || isCreatingList}>
+                {isCreatingList ? "Creating..." : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

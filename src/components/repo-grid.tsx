@@ -2,27 +2,20 @@
 
 import { useRef, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { StarredRepo } from "@/lib/github";
+import { UserRepo } from "@/hooks/use-starred-repos";
 import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Inbox, RotateCcw } from "lucide-react";
 
-interface Tag {
-  id: number;
-  user_id: string;
-  name: string;
-  color: string;
-}
-
 interface RepoGridProps {
-  repos: StarredRepo[];
+  repos: UserRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
-  tags?: Tag[];
-  repoTagMap?: Record<number, number[]>;
-  onAssignTag?: (repoId: number, tagId: number) => void;
-  onRemoveTag?: (repoId: number, tagId: number) => void;
+  repoTagMap?: Record<number, string[]>;
+  allTags?: string[];
+  onAddTag?: (repoId: number, tag: string) => void;
+  onRemoveTag?: (repoId: number, tag: string) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
 }
@@ -71,9 +64,9 @@ export function RepoGrid({
   repos,
   viewMode,
   isLoading,
-  tags,
   repoTagMap = {},
-  onAssignTag,
+  allTags,
+  onAddTag,
   onRemoveTag,
   hasActiveFilters,
   onClearFilters,
@@ -81,7 +74,7 @@ export function RepoGrid({
   const parentRef = useRef<HTMLDivElement>(null);
 
   // For grid mode, group repos into rows
-  // We need to know the column count — use a fixed approach based on common breakpoints
+  // We need to know the column count -- use a fixed approach based on common breakpoints
   // Grid: 1 col < 640px, 2 cols 640-1024px, 3 cols 1024px+
   // For virtualization, we'll use list mode virtualization for both views
   // Grid items get rendered in rows
@@ -90,7 +83,7 @@ export function RepoGrid({
 
   const rows = useMemo(() => {
     if (viewMode === "list") return repos.map((r) => [r]);
-    const result: StarredRepo[][] = [];
+    const result: UserRepo[][] = [];
     for (let i = 0; i < repos.length; i += columns) {
       result.push(repos.slice(i, i + columns));
     }
@@ -175,17 +168,15 @@ export function RepoGrid({
               }
             >
               {rowRepos.map((repo) => {
-                const assignedIds = repoTagMap[repo.id] ?? [];
-                const assignedTags = tags?.filter((t) => assignedIds.includes(t.id));
+                const repoTags = repoTagMap[repo.id] ?? [];
                 return (
                   <RepoCard
                     key={repo.id}
                     repo={repo}
                     viewMode={viewMode}
-                    tags={assignedTags}
-                    allTags={tags}
-                    assignedTagIds={assignedIds}
-                    onAssignTag={onAssignTag}
+                    tags={repoTags}
+                    allTags={allTags}
+                    onAddTag={onAddTag}
                     onRemoveTag={onRemoveTag}
                   />
                 );

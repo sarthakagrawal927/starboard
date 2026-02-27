@@ -19,7 +19,7 @@ export async function PATCH(
 
   const body = await request.json();
   const updates: string[] = [];
-  const args: unknown[] = [];
+  const args: (string | number | null)[] = [];
 
   if (body.name !== undefined) { updates.push("name = ?"); args.push(body.name); }
   if (body.color !== undefined) { updates.push("color = ?"); args.push(body.color); }

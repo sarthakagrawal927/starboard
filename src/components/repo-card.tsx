@@ -1,17 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { StarredRepo } from "@/lib/github";
+import { UserRepo } from "@/hooks/use-starred-repos";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
-
-interface Tag {
-  id: number;
-  user_id: string;
-  name: string;
-  color: string;
-}
 
 const languageColors: Record<string, string> = {
   JavaScript: "#f1e05a",
@@ -54,21 +47,19 @@ function formatStarCount(count: number): string {
 }
 
 interface RepoCardProps {
-  repo: StarredRepo;
-  tags?: Tag[];
-  allTags?: Tag[];
-  assignedTagIds?: number[];
-  onAssignTag?: (repoId: number, tagId: number) => void;
-  onRemoveTag?: (repoId: number, tagId: number) => void;
+  repo: UserRepo;
+  tags?: string[];
+  allTags?: string[];
+  onAddTag?: (repoId: number, tag: string) => void;
+  onRemoveTag?: (repoId: number, tag: string) => void;
   viewMode?: "grid" | "list";
 }
 
 export function RepoCard({
   repo,
-  tags,
+  tags = [],
   allTags,
-  assignedTagIds = [],
-  onAssignTag,
+  onAddTag,
   onRemoveTag,
   viewMode = "grid",
 }: RepoCardProps) {
@@ -116,8 +107,8 @@ export function RepoCard({
             </a>
             <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-              {allTags && onAssignTag && onRemoveTag && (
-                <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
+              {allTags && onAddTag && onRemoveTag && (
+                <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
               )}
               {repo.language && (
                 <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
@@ -139,7 +130,7 @@ export function RepoCard({
               {repo.description}
             </p>
           )}
-          {(repo.topics.length > 0 || (tags && tags.length > 0)) && (
+          {(repo.topics.length > 0 || tags.length > 0) && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {repo.topics.slice(0, 4).map((topic) => (
                 <Badge
@@ -150,17 +141,13 @@ export function RepoCard({
                   {topic}
                 </Badge>
               ))}
-              {tags?.map((tag) => (
+              {tags.map((tag) => (
                 <Badge
-                  key={tag.id}
+                  key={tag}
+                  variant="outline"
                   className="text-[10px] font-normal"
-                  style={{
-                    backgroundColor: tag.color + "20",
-                    color: tag.color,
-                    borderColor: tag.color + "40",
-                  }}
                 >
-                  {tag.name}
+                  {tag}
                 </Badge>
               ))}
             </div>
@@ -191,8 +178,8 @@ export function RepoCard({
           </a>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          {allTags && onAssignTag && onRemoveTag && (
-            <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
+          {allTags && onAddTag && onRemoveTag && (
+            <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
           )}
         </div>
       </div>
@@ -204,7 +191,7 @@ export function RepoCard({
       )}
 
       <div className="mt-auto pt-3">
-        {(repo.topics.length > 0 || (tags && tags.length > 0)) && (
+        {(repo.topics.length > 0 || tags.length > 0) && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {repo.topics.slice(0, 4).map((topic) => (
               <Badge
@@ -215,17 +202,13 @@ export function RepoCard({
                 {topic}
               </Badge>
             ))}
-            {tags?.map((tag) => (
+            {tags.map((tag) => (
               <Badge
-                key={tag.id}
+                key={tag}
+                variant="outline"
                 className="text-[10px] font-normal"
-                style={{
-                  backgroundColor: tag.color + "20",
-                  color: tag.color,
-                  borderColor: tag.color + "40",
-                }}
               >
-                {tag.name}
+                {tag}
               </Badge>
             ))}
           </div>

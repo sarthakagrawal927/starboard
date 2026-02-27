@@ -4,9 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useStarredRepos } from "@/hooks/use-starred-repos";
-import { useTags } from "@/hooks/use-tags";
+import { useLists } from "@/hooks/use-lists";
 import { useRepoTags } from "@/hooks/use-repo-tags";
-import { categories } from "@/lib/categories";
 import { TopBar, type SortOption } from "@/components/top-bar";
 import { Sidebar } from "@/components/sidebar";
 import { RepoGrid } from "@/components/repo-grid";
@@ -91,33 +90,44 @@ export default function StarsPage() {
 
   // Data hooks
   const { repos, fetchedAt, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult } = useStarredRepos();
-  const { tags, isLoading: tagsLoading, createTag } = useTags();
-  const { repoTagMap, assignTag, removeTag } = useRepoTags();
+  const { lists, isLoading: listsLoading, createList } = useLists();
+  const { repoTagMap, addTag, removeTag } = useRepoTags();
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("recently-starred");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
+  const [selectedListId, setSelectedListId] = useState<number | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Derive all unique tags from repoTagMap
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const tags of Object.values(repoTagMap)) {
+      for (const tag of tags) {
+        tagSet.add(tag);
+      }
+    }
+    return Array.from(tagSet).sort();
+  }, [repoTagMap]);
 
   // Check if any filters are active
   const hasActiveFilters = useMemo(() => {
     return (
       searchQuery.trim().length > 0 ||
       selectedLanguages.length > 0 ||
-      selectedCategory !== null ||
-      selectedTagId !== null
+      selectedListId !== null ||
+      selectedTag !== null
     );
-  }, [searchQuery, selectedLanguages, selectedCategory, selectedTagId]);
+  }, [searchQuery, selectedLanguages, selectedListId, selectedTag]);
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setSelectedLanguages([]);
-    setSelectedCategory(null);
-    setSelectedTagId(null);
+    setSelectedListId(null);
+    setSelectedTag(null);
   }, []);
 
   // Filter and sort repos
@@ -141,19 +151,16 @@ export default function StarsPage() {
       );
     }
 
-    // Category filter
-    if (selectedCategory) {
-      const cat = categories.find((c) => c.slug === selectedCategory);
-      if (cat) {
-        result = result.filter(cat.match);
-      }
+    // List filter
+    if (selectedListId !== null) {
+      result = result.filter((repo) => repo.list_id === selectedListId);
     }
 
     // Tag filter
-    if (selectedTagId !== null) {
+    if (selectedTag !== null) {
       result = result.filter((repo) => {
-        const tagIds = repoTagMap[repo.id] ?? [];
-        return tagIds.includes(selectedTagId);
+        const tags = repoTagMap[repo.id] ?? [];
+        return tags.includes(selectedTag);
       });
     }
 
@@ -181,7 +188,7 @@ export default function StarsPage() {
     }
 
     return result;
-  }, [repos, searchQuery, selectedLanguages, selectedCategory, selectedTagId, repoTagMap, sortBy]);
+  }, [repos, searchQuery, selectedLanguages, selectedListId, selectedTag, repoTagMap, sortBy]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
@@ -203,15 +210,16 @@ export default function StarsPage() {
   const sidebarContent = (
     <Sidebar
       repos={repos}
-      isLoading={reposLoading || tagsLoading}
+      isLoading={reposLoading || listsLoading}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
-      selectedCategory={selectedCategory}
-      onCategorySelect={setSelectedCategory}
-      tags={tags}
-      selectedTagId={selectedTagId}
-      onTagSelect={setSelectedTagId}
-      onCreateTag={createTag}
+      lists={lists}
+      selectedListId={selectedListId}
+      onListSelect={setSelectedListId}
+      onCreateList={createList}
+      allTags={allTags}
+      selectedTag={selectedTag}
+      onTagSelect={setSelectedTag}
     />
   );
 
@@ -288,8 +296,7 @@ export default function StarsPage() {
           <SheetContent side="left" className="w-[280px] p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
             <SheetDescription className="sr-only">
-              Filter starred repositories by language, category, tags, and
-              collections.
+              Filter starred repositories by language, list, and tags.
             </SheetDescription>
             {sidebarContent}
           </SheetContent>
@@ -302,9 +309,9 @@ export default function StarsPage() {
               repos={filteredRepos}
               viewMode={viewMode}
               isLoading={reposLoading}
-              tags={tags}
               repoTagMap={repoTagMap}
-              onAssignTag={assignTag}
+              allTags={allTags}
+              onAddTag={addTag}
               onRemoveTag={removeTag}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
