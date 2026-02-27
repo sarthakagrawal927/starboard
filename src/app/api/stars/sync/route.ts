@@ -32,9 +32,11 @@ export async function POST() {
     const added = freshRepos.filter((r) => !existingIds.has(r.id));
     const removedIds = [...existingIds].filter((id) => !freshIds.has(id));
 
-    // Upsert all fresh repos into repos table
+    // Batch upsert all repos + insert new user_repos + delete removed in one round-trip
+    const statements: { sql: string; args: unknown[] }[] = [];
+
     for (const repo of freshRepos) {
-      await db.execute({
+      statements.push({
         sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url, description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
@@ -56,21 +58,22 @@ export async function POST() {
       });
     }
 
-    // Insert new user_repos
     for (const repo of added) {
-      await db.execute({
+      statements.push({
         sql: "INSERT OR IGNORE INTO user_repos (user_id, repo_id) VALUES (?, ?)",
         args: [userId, repo.id],
       });
     }
 
-    // Remove unstarred repos
     for (const repoId of removedIds) {
-      await db.execute({
+      statements.push({
         sql: "DELETE FROM user_repos WHERE user_id = ? AND repo_id = ?",
         args: [userId, repoId],
       });
     }
+
+    // Execute all in one batch round-trip
+    await db.batch(statements);
 
     // Get removed repo info for response
     let removedRepos: { id: number; full_name: string; description: string | null }[] = [];
