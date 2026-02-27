@@ -8,6 +8,12 @@ async function migrate() {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
 
+  // Drop old tables
+  await db.execute("DROP TABLE IF EXISTS repo_tags");
+  await db.execute("DROP TABLE IF EXISTS tags");
+  await db.execute("DROP TABLE IF EXISTS stars_cache");
+
+  // Create new schema
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
   const statements = schema
     .split(";")
