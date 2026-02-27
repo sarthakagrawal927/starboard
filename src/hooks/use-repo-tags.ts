@@ -4,53 +4,40 @@ import useSWR from "swr";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-// Fetches ALL repo-tag assignments in one call
-// Returns a map: { [repoId]: tagId[] }
 export function useRepoTags() {
-  const { data, error, isLoading, mutate } = useSWR<Record<number, number[]>>(
+  const { data, error, isLoading, mutate } = useSWR<Record<number, string[]>>(
     "/api/repo-tags",
     fetcher
   );
 
-  const assignTag = async (repoId: number, tagId: number) => {
-    // Optimistic update
+  const setTags = async (repoId: number, tags: string[]) => {
     mutate(
-      (prev) => {
-        if (!prev) return { [repoId]: [tagId] };
-        const existing = prev[repoId] ?? [];
-        return { ...prev, [repoId]: [...existing, tagId] };
-      },
+      (prev) => ({ ...prev, [repoId]: tags }),
       false
     );
     await fetch(`/api/repos/${repoId}/tags`, {
-      method: "POST",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tagId }),
+      body: JSON.stringify({ tags }),
     });
     mutate();
   };
 
-  const removeTag = async (repoId: number, tagId: number) => {
-    // Optimistic update
-    mutate(
-      (prev) => {
-        if (!prev) return {};
-        const existing = prev[repoId] ?? [];
-        return { ...prev, [repoId]: existing.filter((id) => id !== tagId) };
-      },
-      false
-    );
-    await fetch(`/api/repos/${repoId}/tags`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tagId }),
-    });
-    mutate();
+  const addTag = async (repoId: number, tag: string) => {
+    const current = data?.[repoId] ?? [];
+    if (!current.includes(tag)) {
+      await setTags(repoId, [...current, tag]);
+    }
   };
 
-  const getTagIdsForRepo = (repoId: number): number[] => {
+  const removeTag = async (repoId: number, tag: string) => {
+    const current = data?.[repoId] ?? [];
+    await setTags(repoId, current.filter((t) => t !== tag));
+  };
+
+  const getTagsForRepo = (repoId: number): string[] => {
     return data?.[repoId] ?? [];
   };
 
-  return { repoTagMap: data ?? {}, error, isLoading, assignTag, removeTag, getTagIdsForRepo, mutate };
+  return { repoTagMap: data ?? {}, error, isLoading, setTags, addTag, removeTag, getTagsForRepo, mutate };
 }

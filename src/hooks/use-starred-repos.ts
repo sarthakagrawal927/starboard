@@ -2,12 +2,29 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { StarredRepo } from "@/lib/github";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+export interface UserRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: { login: string; avatar_url: string };
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  stargazers_count: number;
+  topics: string[];
+  created_at: string;
+  updated_at: string;
+  list_id: number | null;
+  tags: string[];
+  notes: string | null;
+  starred_at: string;
+}
+
 interface StarsResponse {
-  repos: StarredRepo[];
+  repos: UserRepo[];
   fetchedAt: string | null;
 }
 
