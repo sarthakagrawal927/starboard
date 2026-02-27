@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { fetchAllStarredRepos } from "@/lib/github";
 import { NextResponse } from "next/server";
+import type { InStatement } from "@libsql/client";
 
 export async function POST() {
   const session = await auth();
@@ -33,7 +34,7 @@ export async function POST() {
     const removedIds = [...existingIds].filter((id) => !freshIds.has(id));
 
     // Batch upsert all repos + insert new user_repos + delete removed in one round-trip
-    const statements: { sql: string; args: unknown[] }[] = [];
+    const statements: InStatement[] = [];
 
     for (const repo of freshRepos) {
       statements.push({
