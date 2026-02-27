@@ -19,21 +19,6 @@ CREATE TABLE IF NOT EXISTS repo_tags (
   tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS collections (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL REFERENCES users(id),
-  name TEXT NOT NULL,
-  slug TEXT NOT NULL,
-  description TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS collection_repos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-  repo_id INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS stars_cache (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
   repos_json TEXT NOT NULL,

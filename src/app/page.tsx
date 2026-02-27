@@ -32,8 +32,8 @@ export default async function Home() {
             description="Smart auto-categories plus custom tags."
           />
           <FeatureCard
-            title="Collect"
-            description="Group repos into custom collections."
+            title="Organize"
+            description="Tag repos with custom colored labels."
           />
         </div>
       </main>

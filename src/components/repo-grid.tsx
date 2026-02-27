@@ -15,21 +15,11 @@ interface Tag {
   color: string;
 }
 
-interface Collection {
-  id: number;
-  user_id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  created_at: string;
-}
-
 interface RepoGridProps {
   repos: StarredRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
   tags?: Tag[];
-  collections?: Collection[];
   repoTagMap?: Record<number, number[]>;
   onAssignTag?: (repoId: number, tagId: number) => void;
   onRemoveTag?: (repoId: number, tagId: number) => void;
@@ -82,7 +72,6 @@ export function RepoGrid({
   viewMode,
   isLoading,
   tags,
-  collections,
   repoTagMap = {},
   onAssignTag,
   onRemoveTag,
@@ -198,7 +187,6 @@ export function RepoGrid({
                     assignedTagIds={assignedIds}
                     onAssignTag={onAssignTag}
                     onRemoveTag={onRemoveTag}
-                    collections={collections}
                   />
                 );
               })}

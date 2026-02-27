@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useStarredRepos } from "@/hooks/use-starred-repos";
 import { useTags } from "@/hooks/use-tags";
-import { useCollections } from "@/hooks/use-collections";
 import { useRepoTags } from "@/hooks/use-repo-tags";
 import { categories } from "@/lib/categories";
 import { TopBar, type SortOption } from "@/components/top-bar";
@@ -93,7 +92,6 @@ export default function StarsPage() {
   // Data hooks
   const { repos, fetchedAt, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult } = useStarredRepos();
   const { tags, isLoading: tagsLoading, createTag } = useTags();
-  const { collections, isLoading: collectionsLoading, createCollection } = useCollections();
   const { repoTagMap, assignTag, removeTag } = useRepoTags();
 
   // UI state
@@ -103,9 +101,6 @@ export default function StarsPage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
-  const [selectedCollectionId, setSelectedCollectionId] = useState<
-    number | null
-  >(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check if any filters are active
@@ -114,17 +109,15 @@ export default function StarsPage() {
       searchQuery.trim().length > 0 ||
       selectedLanguages.length > 0 ||
       selectedCategory !== null ||
-      selectedTagId !== null ||
-      selectedCollectionId !== null
+      selectedTagId !== null
     );
-  }, [searchQuery, selectedLanguages, selectedCategory, selectedTagId, selectedCollectionId]);
+  }, [searchQuery, selectedLanguages, selectedCategory, selectedTagId]);
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setSelectedLanguages([]);
     setSelectedCategory(null);
     setSelectedTagId(null);
-    setSelectedCollectionId(null);
   }, []);
 
   // Filter and sort repos
@@ -210,7 +203,7 @@ export default function StarsPage() {
   const sidebarContent = (
     <Sidebar
       repos={repos}
-      isLoading={reposLoading || tagsLoading || collectionsLoading}
+      isLoading={reposLoading || tagsLoading}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
       selectedCategory={selectedCategory}
@@ -218,11 +211,7 @@ export default function StarsPage() {
       tags={tags}
       selectedTagId={selectedTagId}
       onTagSelect={setSelectedTagId}
-      collections={collections}
-      selectedCollectionId={selectedCollectionId}
-      onCollectionSelect={setSelectedCollectionId}
       onCreateTag={createTag}
-      onCreateCollection={createCollection}
     />
   );
 
@@ -314,7 +303,6 @@ export default function StarsPage() {
               viewMode={viewMode}
               isLoading={reposLoading}
               tags={tags}
-              collections={collections}
               repoTagMap={repoTagMap}
               onAssignTag={assignTag}
               onRemoveTag={removeTag}

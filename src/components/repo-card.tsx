@@ -5,22 +5,12 @@ import { StarredRepo } from "@/lib/github";
 import { Badge } from "@/components/ui/badge";
 import { Star, ExternalLink } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
-import { CollectionPicker } from "@/components/collection-picker";
 
 interface Tag {
   id: number;
   user_id: string;
   name: string;
   color: string;
-}
-
-interface Collection {
-  id: number;
-  user_id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  created_at: string;
 }
 
 const languageColors: Record<string, string> = {
@@ -70,7 +60,6 @@ interface RepoCardProps {
   assignedTagIds?: number[];
   onAssignTag?: (repoId: number, tagId: number) => void;
   onRemoveTag?: (repoId: number, tagId: number) => void;
-  collections?: Collection[];
   viewMode?: "grid" | "list";
 }
 
@@ -81,7 +70,6 @@ export function RepoCard({
   assignedTagIds = [],
   onAssignTag,
   onRemoveTag,
-  collections,
   viewMode = "grid",
 }: RepoCardProps) {
   const langColor = repo.language
@@ -130,9 +118,6 @@ export function RepoCard({
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
               {allTags && onAssignTag && onRemoveTag && (
                 <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
-              )}
-              {collections && collections.length > 0 && (
-                <CollectionPicker repoId={repo.id} collections={collections} />
               )}
               {repo.language && (
                 <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
@@ -208,9 +193,6 @@ export function RepoCard({
         <div className="flex shrink-0 items-center gap-0.5">
           {allTags && onAssignTag && onRemoveTag && (
             <TagPicker repoId={repo.id} tags={allTags} assignedTagIds={assignedTagIds} onAssignTag={onAssignTag} onRemoveTag={onRemoveTag} />
-          )}
-          {collections && collections.length > 0 && (
-            <CollectionPicker repoId={repo.id} collections={collections} />
           )}
         </div>
       </div>
