@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { fetchAllStarredRepos, StarredRepo } from "@/lib/github";
+import { fetchAllStarredRepos } from "@/lib/github";
 import { NextResponse } from "next/server";
 
 export async function POST() {
