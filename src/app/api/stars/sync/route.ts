@@ -3,8 +3,6 @@ import { db } from "@/db";
 import { fetchAllStarredRepos, StarredRepo } from "@/lib/github";
 import { NextResponse } from "next/server";
 
-// POST: Fetch fresh data from GitHub, diff against cache, return changes.
-// The client decides what to do with removed repos.
 export async function POST() {
   const session = await auth();
 
@@ -15,52 +13,85 @@ export async function POST() {
   const userId = session.user.githubId;
 
   try {
-    // Fetch fresh from GitHub (no ETag — always full fetch on manual sync)
     const result = await fetchAllStarredRepos(session.accessToken);
 
     if (result.notModified) {
-      // Shouldn't happen without ETag, but handle gracefully
       return NextResponse.json({ added: [], removed: [], unchanged: true });
     }
 
     const freshRepos = result.repos;
     const freshIds = new Set(freshRepos.map((r) => r.id));
 
-    // Load cached repos
-    const cached = await db.execute({
-      sql: "SELECT repos_json FROM stars_cache WHERE user_id = ?",
+    // Load current user_repos
+    const existing = await db.execute({
+      sql: "SELECT repo_id FROM user_repos WHERE user_id = ?",
       args: [userId],
     });
+    const existingIds = new Set(existing.rows.map((r) => r.repo_id as number));
 
-    let cachedRepos: StarredRepo[] = [];
-    if (cached.rows.length > 0) {
-      cachedRepos = JSON.parse(cached.rows[0].repos_json as string);
+    const added = freshRepos.filter((r) => !existingIds.has(r.id));
+    const removedIds = [...existingIds].filter((id) => !freshIds.has(id));
+
+    // Upsert all fresh repos into repos table
+    for (const repo of freshRepos) {
+      await db.execute({
+        sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url, description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                full_name = excluded.full_name,
+                owner_login = excluded.owner_login,
+                owner_avatar = excluded.owner_avatar,
+                html_url = excluded.html_url,
+                description = excluded.description,
+                language = excluded.language,
+                stargazers_count = excluded.stargazers_count,
+                topics = excluded.topics,
+                repo_updated_at = excluded.repo_updated_at`,
+        args: [
+          repo.id, repo.name, repo.full_name, repo.owner.login, repo.owner.avatar_url,
+          repo.html_url, repo.description, repo.language, repo.stargazers_count,
+          JSON.stringify(repo.topics), repo.created_at, repo.updated_at,
+        ],
+      });
     }
-    const cachedIds = new Set(cachedRepos.map((r) => r.id));
 
-    // Diff
-    const added = freshRepos.filter((r) => !cachedIds.has(r.id));
-    const removed = cachedRepos.filter((r) => !freshIds.has(r.id));
+    // Insert new user_repos
+    for (const repo of added) {
+      await db.execute({
+        sql: "INSERT OR IGNORE INTO user_repos (user_id, repo_id) VALUES (?, ?)",
+        args: [userId, repo.id],
+      });
+    }
 
-    // Update cache with fresh data (keep all fresh repos)
-    const reposJson = JSON.stringify(freshRepos);
-    if (cached.rows.length > 0) {
+    // Remove unstarred repos
+    for (const repoId of removedIds) {
       await db.execute({
-        sql: "UPDATE stars_cache SET repos_json = ?, etag = ?, fetched_at = datetime('now') WHERE user_id = ?",
-        args: [reposJson, result.etag, userId],
+        sql: "DELETE FROM user_repos WHERE user_id = ? AND repo_id = ?",
+        args: [userId, repoId],
       });
-    } else {
-      await db.execute({
-        sql: "INSERT INTO stars_cache (user_id, repos_json, etag) VALUES (?, ?, ?)",
-        args: [userId, reposJson, result.etag],
+    }
+
+    // Get removed repo info for response
+    let removedRepos: { id: number; full_name: string; description: string | null }[] = [];
+    if (removedIds.length > 0) {
+      const placeholders = removedIds.map(() => "?").join(",");
+      const removedResult = await db.execute({
+        sql: `SELECT id, full_name, description FROM repos WHERE id IN (${placeholders})`,
+        args: removedIds,
       });
+      removedRepos = removedResult.rows.map((r) => ({
+        id: r.id as number,
+        full_name: r.full_name as string,
+        description: r.description as string | null,
+      }));
     }
 
     return NextResponse.json({
       added: added.map((r) => ({ id: r.id, full_name: r.full_name, description: r.description })),
-      removed: removed.map((r) => ({ id: r.id, full_name: r.full_name, description: r.description })),
+      removed: removedRepos,
       totalRepos: freshRepos.length,
-      unchanged: added.length === 0 && removed.length === 0,
+      unchanged: added.length === 0 && removedIds.length === 0,
     });
   } catch (error) {
     console.error("Sync failed:", error);
