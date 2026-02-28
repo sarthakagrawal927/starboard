@@ -262,6 +262,10 @@ export default function StarsPage() {
               onRemoveTag={removeTag}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
+              total={total}
+              offset={offset}
+              limit={50}
+              onPageChange={setOffset}
             />
           </main>
         </ScrollArea>

@@ -24,6 +24,10 @@ interface RepoGridProps {
   onRemoveTag?: (repoId: number, tag: string) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
+  total?: number;
+  offset?: number;
+  limit?: number;
+  onPageChange?: (newOffset: number) => void;
 }
 
 function SkeletonCard({ viewMode }: { viewMode: "grid" | "list" }) {
@@ -76,6 +80,10 @@ export function RepoGrid({
   onRemoveTag,
   hasActiveFilters,
   onClearFilters,
+  total,
+  offset,
+  limit,
+  onPageChange,
 }: RepoGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(viewMode === "grid" ? 3 : 1);
@@ -162,54 +170,81 @@ export function RepoGrid({
   }
 
   return (
-    <div ref={parentRef} className="h-[calc(100svh-65px)] overflow-auto">
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const rowRepos = rows[virtualRow.index];
-          return (
-            <div
-              key={virtualRow.key}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-                ...(viewMode === "grid"
-                  ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
-                  : {}),
-              }}
-              className={
-                viewMode === "grid"
-                  ? "grid gap-3 px-0 pb-3"
-                  : "pb-2"
-              }
-            >
-              {rowRepos.map((repo) => {
-                const repoTags = repoTagMap[repo.id] ?? [];
-                return (
-                  <RepoCard
-                    key={repo.id}
-                    repo={repo}
-                    viewMode={viewMode}
-                    tags={repoTags}
-                    allTags={allTags}
-                    onAddTag={onAddTag}
-                    onRemoveTag={onRemoveTag}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
+    <>
+      <div ref={parentRef} className="h-[calc(100svh-65px)] overflow-auto">
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const rowRepos = rows[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  ...(viewMode === "grid"
+                    ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+                    : {}),
+                }}
+                className={
+                  viewMode === "grid"
+                    ? "grid gap-3 px-0 pb-3"
+                    : "pb-2"
+                }
+              >
+                {rowRepos.map((repo) => {
+                  const repoTags = repoTagMap[repo.id] ?? [];
+                  return (
+                    <RepoCard
+                      key={repo.id}
+                      repo={repo}
+                      viewMode={viewMode}
+                      tags={repoTags}
+                      allTags={allTags}
+                      onAddTag={onAddTag}
+                      onRemoveTag={onRemoveTag}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      {total != null && limit != null && onPageChange && total > limit && (
+        <div className="flex items-center justify-between border-t px-1 pt-4">
+          <span className="text-sm text-muted-foreground">
+            {(offset ?? 0) + 1}&ndash;{Math.min((offset ?? 0) + limit, total)} of {total}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={(offset ?? 0) === 0}
+              onClick={() => onPageChange(Math.max((offset ?? 0) - limit, 0))}
+            >
+              Previous
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={(offset ?? 0) + limit >= total}
+              onClick={() => onPageChange((offset ?? 0) + limit)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
