@@ -35,17 +35,25 @@ interface Comment {
   user: { id: string; username: string; avatar_url: string | null };
 }
 
-export function useRepoDetail(repoId: number) {
+/**
+ * Accepts owner/repo slug (e.g. "vercel/next.js").
+ * Resolves to numeric ID via the lookup API, then uses numeric ID for sub-routes.
+ */
+export function useRepoDetail(slug: string) {
   const { data, error, isLoading, mutate } = useSWR<RepoDetail>(
-    `/api/repos/${repoId}`,
+    slug ? `/api/repos/lookup?name=${encodeURIComponent(slug)}` : null,
     fetcher
   );
+
+  const repoId = data?.repo.id;
+
   const { data: comments, mutate: mutateComments } = useSWR<Comment[]>(
-    `/api/repos/${repoId}/comments`,
+    repoId ? `/api/repos/${repoId}/comments` : null,
     fetcher
   );
 
   const toggleLike = async () => {
+    if (!repoId) return;
     const res = await fetch(`/api/repos/${repoId}/likes`, { method: "POST" });
     if (!res.ok) throw new Error("Failed to toggle like");
     const result = await res.json();
@@ -54,6 +62,7 @@ export function useRepoDetail(repoId: number) {
   };
 
   const addComment = async (body: string) => {
+    if (!repoId) return;
     const res = await fetch(`/api/repos/${repoId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -91,7 +91,8 @@ function PageSkeleton() {
 
 export default function RepoDetailPage() {
   const params = useParams();
-  const repoId = Number(params.repoId);
+  const slugParts = params.slug as string[];
+  const repoSlug = slugParts?.length === 2 ? `${slugParts[0]}/${slugParts[1]}` : "";
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
 
@@ -105,7 +106,7 @@ export default function RepoDetailPage() {
     error,
     toggleLike,
     addComment,
-  } = useRepoDetail(repoId);
+  } = useRepoDetail(repoSlug);
 
   const [commentBody, setCommentBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -132,6 +133,14 @@ export default function RepoDetailPage() {
       setSubmitting(false);
     }
   };
+
+  if (!repoSlug) {
+    return (
+      <div className="mx-auto max-w-3xl p-4 md:p-6">
+        <p className="text-muted-foreground">Invalid repository path. Use /explore/owner/repo</p>
+      </div>
+    );
+  }
 
   if (isLoading) return <PageSkeleton />;
 
