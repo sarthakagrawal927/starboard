@@ -25,6 +25,9 @@ export async function PATCH(
   if (body.color !== undefined) { updates.push("color = ?"); args.push(body.color); }
   if (body.icon !== undefined) { updates.push("icon = ?"); args.push(body.icon); }
   if (body.position !== undefined) { updates.push("position = ?"); args.push(body.position); }
+  if (body.is_public !== undefined) { updates.push("is_public = ?"); args.push(body.is_public ? 1 : 0); }
+  if (body.slug !== undefined) { updates.push("slug = ?"); args.push(body.slug); }
+  if (body.description !== undefined) { updates.push("description = ?"); args.push(body.description); }
 
   if (updates.length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
