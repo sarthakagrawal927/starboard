@@ -97,7 +97,6 @@ export default function StarsPage() {
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [offset, setOffset] = useState(0);
 
   // Debounce search input
   useEffect(() => {
@@ -105,20 +104,14 @@ export default function StarsPage() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Reset offset when filters change
-  useEffect(() => {
-    setOffset(0);
-  }, [debouncedSearch, selectedLanguages, selectedListId, selectedTag, sortBy]);
-
   // Data hooks
-  const { repos, total, facets, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult, mutate } = useStarredRepos({
+  const { repos, total, facets, isLoading: reposLoading, loadingMore, hasMore, loadMore, syncing, sync, syncResult, dismissSyncResult, mutate } = useStarredRepos({
     q: debouncedSearch,
     language: selectedLanguages,
     listId: selectedListId,
     tag: selectedTag,
     sort: sortBy,
     limit: 50,
-    offset,
   });
   const { lists, isLoading: listsLoading, createList, shareList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
@@ -262,10 +255,9 @@ export default function StarsPage() {
               onRemoveTag={removeTag}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
-              total={total}
-              offset={offset}
-              limit={50}
-              onPageChange={setOffset}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
             />
           </main>
         </ScrollArea>

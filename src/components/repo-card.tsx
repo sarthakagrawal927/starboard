@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { UserRepo } from "@/hooks/use-starred-repos";
 import { Badge } from "@/components/ui/badge";
-import { Star, ExternalLink } from "lucide-react";
+import { Star } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
 
 const languageColors: Record<string, string> = {
@@ -94,18 +95,15 @@ export function RepoCard({
         <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <a
-              href={repo.html_url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href={`/explore/${repo.id}`}
               className="truncate font-medium text-foreground hover:underline"
             >
               <span className="text-muted-foreground">
                 {repo.owner.login}/
               </span>
               {repo.name}
-            </a>
-            <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </Link>
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
               {allTags && onAddTag && onRemoveTag && (
                 <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
@@ -162,10 +160,8 @@ export function RepoCard({
       <div className="flex items-start gap-3">
         <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
-          <a
-            href={repo.html_url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={`/explore/${repo.id}`}
             className="inline-flex items-center gap-1.5 font-medium leading-tight text-foreground hover:underline"
           >
             <span className="truncate">
@@ -174,8 +170,7 @@ export function RepoCard({
               </span>
               {repo.name}
             </span>
-            <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-          </a>
+          </Link>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {allTags && onAddTag && onRemoveTag && (
