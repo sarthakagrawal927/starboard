@@ -213,7 +213,7 @@ export function Sidebar({
                 <div
                   key={list.id}
                   className={cn(
-                    "group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                    "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
                     selectedListId === list.id &&
                       "bg-accent text-accent-foreground"
                   )}
@@ -222,42 +222,46 @@ export function Sidebar({
                     onClick={() =>
                       onListSelect(selectedListId === list.id ? null : list.id)
                     }
-                    className="flex min-w-0 flex-1 items-center justify-start gap-2.5 text-left"
+                    className="flex w-full min-w-0 items-center gap-2.5 text-left"
                   >
                     <span
                       className="inline-block size-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: list.color }}
                     />
-                    <span className="flex-1 truncate text-left">{list.name}</span>
+                    <span className="block min-w-0 flex-1 truncate text-left">
+                      {list.name}
+                    </span>
                   </button>
-                  {onShareList && (
-                    isCopied ? (
-                      <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        <Check className="size-3" />
-                        Copied!
-                      </span>
-                    ) : (
-                      <button
-                        onClick={(e) => handleShareList(e, list)}
-                        className={cn(
-                          "shrink-0 rounded p-0.5 transition-colors hover:bg-accent-foreground/10",
-                          isShared
-                            ? "text-primary"
-                            : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                        )}
-                        title={isShared ? "Copy share link" : "Share list"}
-                      >
-                        {isShared ? (
-                          <Link className="size-3.5" />
-                        ) : (
-                          <Share2 className="size-3.5" />
-                        )}
-                      </button>
-                    )
-                  )}
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {count}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {onShareList && (
+                      isCopied ? (
+                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          <Check className="size-3" />
+                          Copied!
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => handleShareList(e, list)}
+                          className={cn(
+                            "shrink-0 rounded p-0.5 transition-colors hover:bg-accent-foreground/10",
+                            isShared
+                              ? "text-primary"
+                              : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                          )}
+                          title={isShared ? "Copy share link" : "Share list"}
+                        >
+                          {isShared ? (
+                            <Link className="size-3.5" />
+                          ) : (
+                            <Share2 className="size-3.5" />
+                          )}
+                        </button>
+                      )
+                    )}
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {count}
+                    </span>
+                  </div>
                 </div>
               );
             })}
