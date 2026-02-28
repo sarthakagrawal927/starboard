@@ -222,13 +222,13 @@ export function Sidebar({
                     onClick={() =>
                       onListSelect(selectedListId === list.id ? null : list.id)
                     }
-                    className="flex min-w-0 flex-1 items-center gap-2.5"
+                    className="flex min-w-0 flex-1 items-center justify-start gap-2.5 text-left"
                   >
                     <span
                       className="inline-block size-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: list.color }}
                     />
-                    <span className="flex-1 truncate">{list.name}</span>
+                    <span className="flex-1 truncate text-left">{list.name}</span>
                   </button>
                   {onShareList && (
                     isCopied ? (

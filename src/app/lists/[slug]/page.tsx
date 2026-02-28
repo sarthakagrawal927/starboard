@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { db } from "@/db";
 import type { Metadata } from "next";
 
@@ -155,7 +156,7 @@ export default async function PublicListPage({
       </header>
 
       {/* Repo grid */}
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 pt-8 pb-28 sm:px-6">
         {repos.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-lg text-muted-foreground">This list is empty</p>
@@ -222,14 +223,14 @@ export default async function PublicListPage({
       </main>
 
       {/* Footer */}
-      <footer className="border-t">
-        <div className="mx-auto max-w-5xl px-4 py-6 text-center sm:px-6">
-          <a
+      <footer className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto max-w-5xl px-4 py-4 text-center sm:px-6">
+          <Link
             href="/"
             className="text-sm text-muted-foreground hover:text-foreground hover:underline"
           >
             Built with Starboard
-          </a>
+          </Link>
         </div>
       </footer>
     </div>
