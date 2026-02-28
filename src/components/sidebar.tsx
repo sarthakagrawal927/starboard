@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { UserRepo } from "@/hooks/use-starred-repos";
+import { useState } from "react";
 import { UserList } from "@/hooks/use-lists";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,7 +30,9 @@ const PRESET_COLORS = [
 ];
 
 interface SidebarProps {
-  repos: UserRepo[];
+  languageFacets: [string, number][];
+  listFacets: { id: number; name: string; color: string; count: number }[];
+  tagFacets: [string, number][];
   isLoading?: boolean;
   selectedLanguages: string[];
   onLanguageToggle: (language: string) => void;
@@ -91,7 +92,9 @@ function SidebarSkeleton() {
 }
 
 export function Sidebar({
-  repos,
+  languageFacets,
+  listFacets,
+  tagFacets,
   isLoading,
   selectedLanguages,
   onLanguageToggle,
@@ -107,29 +110,6 @@ export function Sidebar({
   const [newListName, setNewListName] = useState("");
   const [newListColor, setNewListColor] = useState(PRESET_COLORS[5]);
   const [isCreatingList, setIsCreatingList] = useState(false);
-
-  const languageCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const repo of repos) {
-      if (repo.language) {
-        counts[repo.language] = (counts[repo.language] || 0) + 1;
-      }
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 15);
-  }, [repos]);
-
-  // Count repos per list
-  const listCounts = useMemo(() => {
-    const counts: Record<number, number> = {};
-    for (const repo of repos) {
-      if (repo.list_id != null) {
-        counts[repo.list_id] = (counts[repo.list_id] || 0) + 1;
-      }
-    }
-    return counts;
-  }, [repos]);
 
   async function handleCreateList(e: React.FormEvent) {
     e.preventDefault();
@@ -157,7 +137,7 @@ export function Sidebar({
           {/* Languages */}
           <SectionHeader icon={Code2} label="Languages" />
           <div className="mt-1 flex flex-col gap-0.5">
-            {languageCounts.map(([lang, count]) => (
+            {languageFacets.slice(0, 15).map(([lang, count]) => (
               <label
                 key={lang}
                 className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
@@ -173,7 +153,7 @@ export function Sidebar({
                 </span>
               </label>
             ))}
-            {languageCounts.length === 0 && (
+            {languageFacets.length === 0 && (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">
                 No languages yet
               </p>
@@ -195,28 +175,32 @@ export function Sidebar({
             </Button>
           </div>
           <div className="mt-1 flex flex-col gap-0.5">
-            {lists.map((list) => (
-              <button
-                key={list.id}
-                onClick={() =>
-                  onListSelect(selectedListId === list.id ? null : list.id)
-                }
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-                  selectedListId === list.id &&
-                    "bg-accent text-accent-foreground"
-                )}
-              >
-                <span
-                  className="inline-block size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: list.color }}
-                />
-                <span className="flex-1 truncate">{list.name}</span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {listCounts[list.id] ?? 0}
-                </span>
-              </button>
-            ))}
+            {lists.map((list) => {
+              const facet = listFacets.find((f) => f.id === list.id);
+              const count = facet?.count ?? 0;
+              return (
+                <button
+                  key={list.id}
+                  onClick={() =>
+                    onListSelect(selectedListId === list.id ? null : list.id)
+                  }
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                    selectedListId === list.id &&
+                      "bg-accent text-accent-foreground"
+                  )}
+                >
+                  <span
+                    className="inline-block size-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: list.color }}
+                  />
+                  <span className="flex-1 truncate">{list.name}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
             {lists.length === 0 && (
               <p className="px-2 py-3 text-center text-xs text-muted-foreground">
                 Create lists to organize your repos
@@ -229,7 +213,7 @@ export function Sidebar({
           {/* Tags */}
           <SectionHeader icon={TagIcon} label="Tags" />
           <div className="mt-1 flex flex-col gap-0.5">
-            {allTags.map((tag) => (
+            {tagFacets.map(([tag, count]) => (
               <button
                 key={tag}
                 onClick={() =>
@@ -242,9 +226,12 @@ export function Sidebar({
               >
                 <TagIcon className="size-3 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{tag}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {count}
+                </span>
               </button>
             ))}
-            {allTags.length === 0 && (
+            {tagFacets.length === 0 && (
               <p className="px-2 py-3 text-center text-xs text-muted-foreground">
                 Tags appear here when you add them to repos
               </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { SortOption } from "@/hooks/use-starred-repos";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,12 +25,6 @@ import {
   Loader2,
 } from "lucide-react";
 
-export type SortOption =
-  | "recently-starred"
-  | "most-stars"
-  | "recently-updated"
-  | "name-az";
-
 const sortLabels: Record<SortOption, string> = {
   "recently-starred": "Recently Starred",
   "most-stars": "Most Stars",
@@ -50,7 +45,6 @@ interface TopBarProps {
   onClearFilters?: () => void;
   syncing?: boolean;
   onSync?: () => void;
-  fetchedAt?: string | null;
 }
 
 export function TopBar({
@@ -66,7 +60,6 @@ export function TopBar({
   onClearFilters,
   syncing,
   onSync,
-  fetchedAt,
 }: TopBarProps) {
   const { data: session } = useSession();
 
@@ -107,7 +100,6 @@ export function TopBar({
           className="shrink-0 gap-1.5 text-xs"
           onClick={onSync}
           disabled={syncing}
-          title={fetchedAt ? `Last synced: ${new Date(fetchedAt).toLocaleString()}` : "Never synced"}
         >
           {syncing ? (
             <Loader2 className="size-3.5 animate-spin" />

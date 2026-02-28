@@ -1,12 +1,18 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserRepo } from "@/hooks/use-starred-repos";
 import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Inbox, RotateCcw } from "lucide-react";
+
+function widthToColumns(width: number): number {
+  if (width >= 1024) return 3;
+  if (width >= 640) return 2;
+  return 1;
+}
 
 interface RepoGridProps {
   repos: UserRepo[];
@@ -72,14 +78,25 @@ export function RepoGrid({
   onClearFilters,
 }: RepoGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(viewMode === "grid" ? 3 : 1);
 
-  // For grid mode, group repos into rows
-  // We need to know the column count -- use a fixed approach based on common breakpoints
-  // Grid: 1 col < 640px, 2 cols 640-1024px, 3 cols 1024px+
-  // For virtualization, we'll use list mode virtualization for both views
-  // Grid items get rendered in rows
-
-  const columns = viewMode === "grid" ? 3 : 1;
+  // Track container width to compute responsive column count
+  useEffect(() => {
+    if (viewMode !== "grid") {
+      setColumns(1);
+      return;
+    }
+    const el = parentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      setColumns(widthToColumns(width));
+    });
+    ro.observe(el);
+    // Set initial value
+    setColumns(widthToColumns(el.clientWidth));
+    return () => ro.disconnect();
+  }, [viewMode]);
 
   const rows = useMemo(() => {
     if (viewMode === "list") return repos.map((r) => [r]);
@@ -90,10 +107,15 @@ export function RepoGrid({
     return result;
   }, [repos, viewMode, columns]);
 
+  const estimateSize = useCallback(
+    () => (viewMode === "grid" ? 240 : 100),
+    [viewMode]
+  );
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => (viewMode === "grid" ? 240 : 100),
+    estimateSize,
     overscan: 5,
   });
 
@@ -160,10 +182,13 @@ export function RepoGrid({
                 width: "100%",
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
+                ...(viewMode === "grid"
+                  ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+                  : {}),
               }}
               className={
                 viewMode === "grid"
-                  ? "grid grid-cols-1 gap-3 px-0 pb-3 sm:grid-cols-2 lg:grid-cols-3"
+                  ? "grid gap-3 px-0 pb-3"
                   : "pb-2"
               }
             >

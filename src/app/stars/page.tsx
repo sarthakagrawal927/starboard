@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useStarredRepos } from "@/hooks/use-starred-repos";
+import { useStarredRepos, type SortOption } from "@/hooks/use-starred-repos";
 import { useLists } from "@/hooks/use-lists";
 import { useRepoTags } from "@/hooks/use-repo-tags";
-import { TopBar, type SortOption } from "@/components/top-bar";
+import { TopBar } from "@/components/top-bar";
 import { Sidebar } from "@/components/sidebar";
 import { RepoGrid } from "@/components/repo-grid";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -88,40 +88,46 @@ export default function StarsPage() {
     router.replace("/");
   }
 
-  // Data hooks
-  const { repos, fetchedAt, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult } = useStarredRepos();
-  const { lists, isLoading: listsLoading, createList } = useLists();
-  const { repoTagMap, addTag, removeTag } = useRepoTags();
-
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("recently-starred");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [offset, setOffset] = useState(0);
 
-  // Derive all unique tags from repoTagMap
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const tags of Object.values(repoTagMap)) {
-      for (const tag of tags) {
-        tagSet.add(tag);
-      }
-    }
-    return Array.from(tagSet).sort();
-  }, [repoTagMap]);
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset offset when filters change
+  useEffect(() => {
+    setOffset(0);
+  }, [debouncedSearch, selectedLanguages, selectedListId, selectedTag, sortBy]);
+
+  // Data hooks
+  const { repos, total, facets, isLoading: reposLoading, syncing, sync, syncResult, dismissSyncResult, mutate } = useStarredRepos({
+    q: debouncedSearch,
+    language: selectedLanguages,
+    listId: selectedListId,
+    tag: selectedTag,
+    sort: sortBy,
+    limit: 50,
+    offset,
+  });
+  const { lists, isLoading: listsLoading, createList } = useLists();
+  const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
+
+  // Derive allTags from facets
+  const allTags = facets.tags.map(([tag]) => tag);
 
   // Check if any filters are active
-  const hasActiveFilters = useMemo(() => {
-    return (
-      searchQuery.trim().length > 0 ||
-      selectedLanguages.length > 0 ||
-      selectedListId !== null ||
-      selectedTag !== null
-    );
-  }, [searchQuery, selectedLanguages, selectedListId, selectedTag]);
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedLanguages.length > 0 || selectedListId !== null || selectedTag !== null;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
@@ -129,66 +135,6 @@ export default function StarsPage() {
     setSelectedListId(null);
     setSelectedTag(null);
   }, []);
-
-  // Filter and sort repos
-  const filteredRepos = useMemo(() => {
-    let result = [...repos];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((repo) => {
-        const searchable =
-          `${repo.name} ${repo.full_name} ${repo.description ?? ""} ${repo.topics.join(" ")}`.toLowerCase();
-        return searchable.includes(q);
-      });
-    }
-
-    // Language filter
-    if (selectedLanguages.length > 0) {
-      result = result.filter(
-        (repo) => repo.language && selectedLanguages.includes(repo.language)
-      );
-    }
-
-    // List filter
-    if (selectedListId !== null) {
-      result = result.filter((repo) => repo.list_id === selectedListId);
-    }
-
-    // Tag filter
-    if (selectedTag !== null) {
-      result = result.filter((repo) => {
-        const tags = repoTagMap[repo.id] ?? [];
-        return tags.includes(selectedTag);
-      });
-    }
-
-    // Sort
-    switch (sortBy) {
-      case "most-stars":
-        result.sort((a, b) => b.stargazers_count - a.stargazers_count);
-        break;
-      case "recently-updated":
-        result.sort(
-          (a, b) =>
-            new Date(b.updated_at).getTime() -
-            new Date(a.updated_at).getTime()
-        );
-        break;
-      case "name-az":
-        result.sort((a, b) =>
-          a.full_name.toLowerCase().localeCompare(b.full_name.toLowerCase())
-        );
-        break;
-      case "recently-starred":
-      default:
-        // Already in order from API (recently starred first)
-        break;
-    }
-
-    return result;
-  }, [repos, searchQuery, selectedLanguages, selectedListId, selectedTag, repoTagMap, sortBy]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
@@ -209,7 +155,9 @@ export default function StarsPage() {
 
   const sidebarContent = (
     <Sidebar
-      repos={repos}
+      languageFacets={facets.languages}
+      listFacets={facets.lists}
+      tagFacets={facets.tags}
       isLoading={reposLoading || listsLoading}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
@@ -233,12 +181,11 @@ export default function StarsPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onMenuClick={() => setSidebarOpen(true)}
-        repoCount={filteredRepos.length}
+        repoCount={total}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={clearFilters}
         syncing={syncing}
         onSync={sync}
-        fetchedAt={fetchedAt}
       />
 
       {/* Sync result banner */}
@@ -268,8 +215,8 @@ export default function StarsPage() {
         </div>
       )}
 
-      {/* Empty state: no cache yet */}
-      {!reposLoading && repos.length === 0 && !fetchedAt && (
+      {/* Empty state: no repos at all (never synced) */}
+      {!reposLoading && total === 0 && !hasActiveFilters && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
           <p className="text-lg font-medium">No stars synced yet</p>
           <p className="text-sm text-muted-foreground">
@@ -306,7 +253,7 @@ export default function StarsPage() {
         <ScrollArea className="flex-1">
           <main className="p-4 md:p-6">
             <RepoGrid
-              repos={filteredRepos}
+              repos={repos}
               viewMode={viewMode}
               isLoading={reposLoading}
               repoTagMap={repoTagMap}
