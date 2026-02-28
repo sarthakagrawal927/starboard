@@ -40,7 +40,6 @@ interface SidebarProps {
   selectedListId: number | null;
   onListSelect: (id: number | null) => void;
   onCreateList: (name: string, color?: string) => Promise<unknown>;
-  allTags: string[];
   selectedTag: string | null;
   onTagSelect: (tag: string | null) => void;
 }
@@ -102,7 +101,6 @@ export function Sidebar({
   selectedListId,
   onListSelect,
   onCreateList,
-  allTags,
   selectedTag,
   onTagSelect,
 }: SidebarProps) {

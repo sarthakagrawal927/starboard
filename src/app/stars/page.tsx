@@ -165,7 +165,6 @@ export default function StarsPage() {
       selectedListId={selectedListId}
       onListSelect={setSelectedListId}
       onCreateList={createList}
-      allTags={allTags}
       selectedTag={selectedTag}
       onTagSelect={setSelectedTag}
     />

@@ -4,6 +4,7 @@ import { useMemo, useCallback } from "react";
 import { UserRepo } from "@/hooks/use-starred-repos";
 import type { KeyedMutator } from "swr";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useRepoTags(repos: UserRepo[], mutateStars: KeyedMutator<any>) {
   const repoTagMap = useMemo(() => {
     const map: Record<number, string[]> = {};
