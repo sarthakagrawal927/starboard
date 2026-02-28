@@ -259,7 +259,7 @@ export function Sidebar({
               );
             })}
             {lists.length === 0 && (
-              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+              <p className="px-2 py-3 text-xs text-muted-foreground">
                 Create lists to organize your repos
               </p>
             )}
@@ -289,7 +289,7 @@ export function Sidebar({
               </button>
             ))}
             {tagFacets.length === 0 && (
-              <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+              <p className="px-2 py-3 text-xs text-muted-foreground">
                 Tags appear here when you add them to repos
               </p>
             )}

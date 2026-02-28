@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useQueryState, parseAsString, parseAsStringLiteral, parseAsArrayOf } from "nuqs";
 import { useStarredRepos, type SortOption } from "@/hooks/use-starred-repos";
 import { useLists } from "@/hooks/use-lists";
 import { useRepoTags } from "@/hooks/use-repo-tags";
@@ -18,10 +19,11 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 
+const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
+
 function PageSkeleton() {
   return (
     <>
-      {/* Top bar skeleton */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/80 px-4 py-3 backdrop-blur-sm md:px-6">
         <Skeleton className="h-9 flex-1 rounded-md" />
         <Skeleton className="hidden h-8 w-36 rounded-md sm:block" />
@@ -30,7 +32,6 @@ function PageSkeleton() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Sidebar skeleton */}
         <aside className="hidden w-[280px] shrink-0 border-r md:block">
           <div className="flex flex-col gap-1 p-4">
             {Array.from({ length: 3 }).map((_, section) => (
@@ -53,7 +54,6 @@ function PageSkeleton() {
           </div>
         </aside>
 
-        {/* Main content skeleton */}
         <div className="flex-1 p-4 md:p-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -80,23 +80,36 @@ function PageSkeleton() {
 }
 
 export default function StarsPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <StarsContent />
+    </Suspense>
+  );
+}
+
+function StarsContent() {
   const { status } = useSession();
   const router = useRouter();
 
-  // Redirect to home if not authenticated
   if (status === "unauthenticated") {
     router.replace("/");
   }
 
-  // UI state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("recently-starred");
+  // URL-synced filter state via nuqs
+  const [searchQuery, setSearchQuery] = useQueryState("q", parseAsString.withDefault(""));
+  const [sortBy, setSortBy] = useQueryState("sort", parseAsStringLiteral(sortOptions).withDefault("recently-starred"));
+  const [selectedLanguages, setSelectedLanguages] = useQueryState("lang", parseAsArrayOf(parseAsString, ",").withDefault([]));
+  const [selectedListId, setSelectedListId] = useQueryState("list", {
+    parse: (v) => (v ? parseInt(v, 10) : null),
+    serialize: (v) => (v != null ? String(v) : ""),
+    defaultValue: null,
+  });
+  const [selectedTag, setSelectedTag] = useQueryState("tag", parseAsString.withDefault("").withOptions({ clearOnDefault: true }));
+
+  // Local-only state
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [selectedListId, setSelectedListId] = useState<number | null>(null);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
   // Debounce search input
   useEffect(() => {
@@ -109,35 +122,47 @@ export default function StarsPage() {
     q: debouncedSearch,
     language: selectedLanguages,
     listId: selectedListId,
-    tag: selectedTag,
+    tag: selectedTag || null,
     sort: sortBy,
     limit: 50,
   });
   const { lists, isLoading: listsLoading, createList, shareList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
-  // Derive allTags from facets
+  // Track whether we've loaded data at least once (to avoid showing sidebar skeleton on filter changes)
+  const hasLoadedOnce = useRef(false);
+  if (!reposLoading && !listsLoading) {
+    hasLoadedOnce.current = true;
+  }
+  const showSidebarSkeleton = !hasLoadedOnce.current && (reposLoading || listsLoading);
+
   const allTags = facets.tags.map(([tag]) => tag);
 
-  // Check if any filters are active
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedLanguages.length > 0 || selectedListId !== null || selectedTag !== null;
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedLanguages.length > 0 || selectedListId !== null || (selectedTag !== null && selectedTag !== "");
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setSelectedLanguages([]);
     setSelectedListId(null);
-    setSelectedTag(null);
-  }, []);
+    setSelectedTag("");
+  }, [setSearchQuery, setSelectedLanguages, setSelectedListId, setSelectedTag]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
-      prev.includes(language)
-        ? prev.filter((l) => l !== language)
-        : [...prev, language]
+      (prev ?? []).includes(language)
+        ? (prev ?? []).filter((l) => l !== language)
+        : [...(prev ?? []), language]
     );
-  }, []);
+  }, [setSelectedLanguages]);
 
-  // Loading/auth state
+  const handleListSelect = useCallback((id: number | null) => {
+    setSelectedListId(id);
+  }, [setSelectedListId]);
+
+  const handleTagSelect = useCallback((tag: string | null) => {
+    setSelectedTag(tag ?? "");
+  }, [setSelectedTag]);
+
   if (status === "loading") {
     return <PageSkeleton />;
   }
@@ -151,16 +176,16 @@ export default function StarsPage() {
       languageFacets={facets.languages}
       listFacets={facets.lists}
       tagFacets={facets.tags}
-      isLoading={reposLoading || listsLoading}
+      isLoading={showSidebarSkeleton}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
       lists={lists}
       selectedListId={selectedListId}
-      onListSelect={setSelectedListId}
+      onListSelect={handleListSelect}
       onCreateList={createList}
       onShareList={shareList}
-      selectedTag={selectedTag}
-      onTagSelect={setSelectedTag}
+      selectedTag={selectedTag || null}
+      onTagSelect={handleTagSelect}
     />
   );
 
@@ -181,7 +206,6 @@ export default function StarsPage() {
         onSync={sync}
       />
 
-      {/* Sync result banner */}
       {syncResult && !syncResult.unchanged && (
         <div className="border-b bg-card px-4 py-3 md:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -208,7 +232,6 @@ export default function StarsPage() {
         </div>
       )}
 
-      {/* Empty state: no repos at all (never synced) */}
       {!reposLoading && total === 0 && !hasActiveFilters && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
           <p className="text-lg font-medium">No stars synced yet</p>
@@ -226,12 +249,10 @@ export default function StarsPage() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        {/* Desktop sidebar */}
         <aside className="hidden w-[280px] shrink-0 border-r md:block">
           {sidebarContent}
         </aside>
 
-        {/* Mobile sidebar sheet */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-[280px] p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
@@ -242,7 +263,6 @@ export default function StarsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* Main content */}
         <ScrollArea className="flex-1">
           <main className="p-4 md:p-6">
             <RepoGrid
