@@ -126,7 +126,7 @@ function StarsContent() {
     sort: sortBy,
     limit: 50,
   });
-  const { lists, isLoading: listsLoading, createList, shareList } = useLists();
+  const { lists, isLoading: listsLoading, createList, shareList, assignRepoToList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
   // Track whether we've loaded data at least once (to avoid showing sidebar skeleton on filter changes)
@@ -158,6 +158,11 @@ function StarsContent() {
   const handleListSelect = useCallback((id: number | null) => {
     setSelectedListId(id);
   }, [setSelectedListId]);
+
+  const handleAssignList = useCallback(async (repoId: number, listId: number | null) => {
+    await assignRepoToList(repoId, listId);
+    mutate();
+  }, [assignRepoToList, mutate]);
 
   const handleTagSelect = useCallback((tag: string | null) => {
     setSelectedTag(tag ?? "");
@@ -273,6 +278,8 @@ function StarsContent() {
               allTags={allTags}
               onAddTag={addTag}
               onRemoveTag={removeTag}
+              lists={lists}
+              onAssignList={handleAssignList}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
               hasMore={hasMore}

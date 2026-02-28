@@ -3,6 +3,7 @@
 import { useRef, useMemo, useState, useEffect, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserRepo } from "@/hooks/use-starred-repos";
+import type { UserList } from "@/hooks/use-lists";
 import { RepoCard } from "@/components/repo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface RepoGridProps {
   allTags?: string[];
   onAddTag?: (repoId: number, tag: string) => void;
   onRemoveTag?: (repoId: number, tag: string) => void;
+  lists?: UserList[];
+  onAssignList?: (repoId: number, listId: number | null) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   hasMore?: boolean;
@@ -77,6 +80,8 @@ export function RepoGrid({
   allTags,
   onAddTag,
   onRemoveTag,
+  lists,
+  onAssignList,
   hasActiveFilters,
   onClearFilters,
   hasMore,
@@ -224,6 +229,8 @@ export function RepoGrid({
                     allTags={allTags}
                     onAddTag={onAddTag}
                     onRemoveTag={onRemoveTag}
+                    lists={lists}
+                    onAssignList={onAssignList}
                   />
                 );
               })}

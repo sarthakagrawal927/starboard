@@ -6,6 +6,8 @@ import { UserRepo } from "@/hooks/use-starred-repos";
 import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
+import { ListPicker } from "@/components/list-picker";
+import type { UserList } from "@/hooks/use-lists";
 
 const languageColors: Record<string, string> = {
   JavaScript: "#f1e05a",
@@ -53,6 +55,8 @@ interface RepoCardProps {
   allTags?: string[];
   onAddTag?: (repoId: number, tag: string) => void;
   onRemoveTag?: (repoId: number, tag: string) => void;
+  lists?: UserList[];
+  onAssignList?: (repoId: number, listId: number | null) => void;
   viewMode?: "grid" | "list";
 }
 
@@ -62,6 +66,8 @@ export function RepoCard({
   allTags,
   onAddTag,
   onRemoveTag,
+  lists,
+  onAssignList,
   viewMode = "grid",
 }: RepoCardProps) {
   const langColor = repo.language
@@ -105,6 +111,9 @@ export function RepoCard({
               {repo.name}
             </Link>
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+              {lists && onAssignList && (
+                <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
+              )}
               {allTags && onAddTag && onRemoveTag && (
                 <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
               )}
@@ -161,7 +170,7 @@ export function RepoCard({
         <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
           <Link
-            href={`/explore/${repo.id}`}
+            href={`/explore/${repo.full_name}`}
             className="inline-flex items-center gap-1.5 font-medium leading-tight text-foreground hover:underline"
           >
             <span className="truncate">
@@ -173,6 +182,9 @@ export function RepoCard({
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {lists && onAssignList && (
+            <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
+          )}
           {allTags && onAddTag && onRemoveTag && (
             <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
           )}
