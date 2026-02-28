@@ -15,6 +15,9 @@ export interface UserList {
   color: string;
   icon: string | null;
   position: number;
+  is_public: number; // 0 or 1 (SQLite integer)
+  slug: string | null;
+  description: string | null;
   created_at: string;
 }
 
@@ -54,5 +57,13 @@ export function useLists() {
     });
   };
 
-  return { lists: data ?? [], error, isLoading, createList, updateList, deleteList, assignRepoToList, mutate };
+  const shareList = async (id: number) => {
+    const res = await fetch(`/api/lists/${id}/share`, { method: "POST" });
+    if (!res.ok) throw new Error("Failed to toggle share");
+    const result = await res.json();
+    mutate();
+    return result as { is_public: boolean; slug: string };
+  };
+
+  return { lists: data ?? [], error, isLoading, createList, updateList, deleteList, assignRepoToList, shareList, mutate };
 }

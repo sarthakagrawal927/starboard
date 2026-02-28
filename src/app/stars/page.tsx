@@ -120,7 +120,7 @@ export default function StarsPage() {
     limit: 50,
     offset,
   });
-  const { lists, isLoading: listsLoading, createList } = useLists();
+  const { lists, isLoading: listsLoading, createList, shareList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
   // Derive allTags from facets
@@ -165,6 +165,7 @@ export default function StarsPage() {
       selectedListId={selectedListId}
       onListSelect={setSelectedListId}
       onCreateList={createList}
+      onShareList={shareList}
       selectedTag={selectedTag}
       onTagSelect={setSelectedTag}
     />

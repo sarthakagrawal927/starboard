@@ -20,6 +20,8 @@ import {
   Code2,
   List,
   Plus,
+  Share2,
+  Link,
   Tag as TagIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,7 @@ interface SidebarProps {
   selectedListId: number | null;
   onListSelect: (id: number | null) => void;
   onCreateList: (name: string, color?: string) => Promise<unknown>;
+  onShareList?: (id: number) => Promise<{ is_public: boolean; slug: string }>;
   selectedTag: string | null;
   onTagSelect: (tag: string | null) => void;
 }
@@ -101,6 +104,7 @@ export function Sidebar({
   selectedListId,
   onListSelect,
   onCreateList,
+  onShareList,
   selectedTag,
   onTagSelect,
 }: SidebarProps) {
@@ -108,6 +112,7 @@ export function Sidebar({
   const [newListName, setNewListName] = useState("");
   const [newListColor, setNewListColor] = useState(PRESET_COLORS[5]);
   const [isCreatingList, setIsCreatingList] = useState(false);
+  const [copiedListId, setCopiedListId] = useState<number | null>(null);
 
   async function handleCreateList(e: React.FormEvent) {
     e.preventDefault();
@@ -121,6 +126,23 @@ export function Sidebar({
       setListDialogOpen(false);
     } finally {
       setIsCreatingList(false);
+    }
+  }
+
+  async function handleShareList(e: React.MouseEvent, listId: number) {
+    e.stopPropagation();
+    if (!onShareList) return;
+    try {
+      const result = await onShareList(listId);
+      if (result.is_public && result.slug) {
+        await navigator.clipboard.writeText(
+          window.location.origin + "/lists/" + result.slug
+        );
+        setCopiedListId(listId);
+        setTimeout(() => setCopiedListId(null), 2000);
+      }
+    } catch {
+      // silently fail
     }
   }
 
@@ -176,27 +198,64 @@ export function Sidebar({
             {lists.map((list) => {
               const facet = listFacets.find((f) => f.id === list.id);
               const count = facet?.count ?? 0;
+              const isShared = list.is_public === 1;
+              const isCopied = copiedListId === list.id;
               return (
-                <button
+                <div
                   key={list.id}
-                  onClick={() =>
-                    onListSelect(selectedListId === list.id ? null : list.id)
-                  }
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                    "group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
                     selectedListId === list.id &&
                       "bg-accent text-accent-foreground"
                   )}
                 >
-                  <span
-                    className="inline-block size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: list.color }}
-                  />
-                  <span className="flex-1 truncate">{list.name}</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <button
+                    onClick={() =>
+                      onListSelect(selectedListId === list.id ? null : list.id)
+                    }
+                    className="flex min-w-0 flex-1 items-center gap-2.5"
+                  >
+                    <span
+                      className="inline-block size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: list.color }}
+                    />
+                    <span className="flex-1 truncate">{list.name}</span>
+                  </button>
+                  {onShareList && (
+                    <button
+                      onClick={(e) => handleShareList(e, list.id)}
+                      className={cn(
+                        "shrink-0 rounded p-0.5 transition-colors hover:bg-accent-foreground/10",
+                        isShared
+                          ? "text-primary"
+                          : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                      )}
+                      aria-label={
+                        isCopied
+                          ? "Link copied"
+                          : isShared
+                            ? "Shared — click to copy link or unshare"
+                            : "Share list"
+                      }
+                      title={
+                        isCopied
+                          ? "Copied!"
+                          : isShared
+                            ? "Shared — click to copy link"
+                            : "Share list"
+                      }
+                    >
+                      {isCopied ? (
+                        <Link className="size-3.5" />
+                      ) : (
+                        <Share2 className="size-3.5" />
+                      )}
+                    </button>
+                  )}
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {count}
                   </span>
-                </button>
+                </div>
               );
             })}
             {lists.length === 0 && (
