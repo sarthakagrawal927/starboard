@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { UserRepo } from "@/hooks/use-starred-repos";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +7,7 @@ import { Star } from "lucide-react";
 import { TagPicker } from "@/components/tag-picker";
 import { ListPicker } from "@/components/list-picker";
 import type { UserList } from "@/hooks/use-lists";
+import { getAvatarImageAttrs } from "@/lib/avatar";
 
 const languageColors: Record<string, string> = {
   JavaScript: "#f1e05a",
@@ -74,24 +74,20 @@ export function RepoCard({
     ? languageColors[repo.language] ?? "#8b8b8b"
     : null;
 
-  const isGitHubAvatar = repo.owner.avatar_url.includes(
-    "avatars.githubusercontent.com"
-  );
-
-  const avatar = isGitHubAvatar ? (
-    <Image
-      src={repo.owner.avatar_url}
-      alt={repo.owner.login}
-      width={viewMode === "list" ? 32 : 24}
-      height={viewMode === "list" ? 32 : 24}
-      className={`rounded-full ${viewMode === "list" ? "size-8" : "size-6"}`}
-    />
-  ) : (
+  const avatarSize = viewMode === "list" ? 32 : 24;
+  const avatarImage = getAvatarImageAttrs(repo.owner.avatar_url, avatarSize);
+  const avatar = (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={repo.owner.avatar_url}
+      src={avatarImage.src}
+      srcSet={avatarImage.srcSet}
+      sizes={avatarImage.sizes}
       alt={repo.owner.login}
+      width={avatarSize}
+      height={avatarSize}
       className={viewMode === "list" ? "size-8 rounded-full" : "size-6 rounded-full"}
       loading="lazy"
+      decoding="async"
     />
   );
 

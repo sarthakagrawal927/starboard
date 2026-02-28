@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db";
 import type { Metadata } from "next";
+import { getAvatarImageAttrs } from "@/lib/avatar";
 
 interface Repo {
   id: number;
@@ -107,6 +108,7 @@ export default async function PublicListPage({
   }
 
   const { list, owner, repos } = data;
+  const ownerAvatar = getAvatarImageAttrs(owner.avatar_url, 24);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -131,11 +133,16 @@ export default async function PublicListPage({
           <div className="mt-4 flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={owner.avatar_url}
+              src={ownerAvatar.src}
+              srcSet={ownerAvatar.srcSet}
+              sizes={ownerAvatar.sizes}
               alt={owner.username}
               width={24}
               height={24}
               className="size-6 rounded-full"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
             />
             <span className="text-sm text-muted-foreground">
               Curated by{" "}
@@ -163,61 +170,68 @@ export default async function PublicListPage({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {repos.map((repo) => (
-              <a
-                key={repo.id}
-                href={repo.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex flex-col rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20 hover:bg-accent/50"
-              >
-                {/* Top row: avatar + name + stars */}
-                <div className="flex items-start gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={repo.owner_avatar}
-                    alt={repo.owner_login}
-                    width={24}
-                    height={24}
-                    className="size-6 shrink-0 rounded-full"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold group-hover:underline">
-                    {repo.full_name}
-                  </span>
-                  <span
-                    className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
-                    title={`${repo.stargazers_count.toLocaleString()} stars`}
-                  >
-                    <svg
-                      className="size-3.5"
-                      fill="currentColor"
-                      viewBox="0 0 16 16"
-                      aria-hidden="true"
+            {repos.map((repo) => {
+              const repoAvatar = getAvatarImageAttrs(repo.owner_avatar, 24);
+              return (
+                <a
+                  key={repo.id}
+                  href={repo.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20 hover:bg-accent/50"
+                >
+                  {/* Top row: avatar + name + stars */}
+                  <div className="flex items-start gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={repoAvatar.src}
+                      srcSet={repoAvatar.srcSet}
+                      sizes={repoAvatar.sizes}
+                      alt={repo.owner_login}
+                      width={24}
+                      height={24}
+                      className="size-6 shrink-0 rounded-full"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold group-hover:underline">
+                      {repo.full_name}
+                    </span>
+                    <span
+                      className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+                      title={`${repo.stargazers_count.toLocaleString()} stars`}
                     >
-                      <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" />
-                    </svg>
-                    {formatStars(repo.stargazers_count)}
-                  </span>
-                </div>
-
-                {/* Description */}
-                {repo.description && (
-                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                    {repo.description}
-                  </p>
-                )}
-
-                {/* Language */}
-                {repo.language && (
-                  <div className="mt-auto flex items-center gap-1.5 pt-3">
-                    <span className="inline-block size-2.5 rounded-full bg-current opacity-60" />
-                    <span className="text-xs text-muted-foreground">
-                      {repo.language}
+                      <svg
+                        className="size-3.5"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" />
+                      </svg>
+                      {formatStars(repo.stargazers_count)}
                     </span>
                   </div>
-                )}
-              </a>
-            ))}
+
+                  {/* Description */}
+                  {repo.description && (
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {repo.description}
+                    </p>
+                  )}
+
+                  {/* Language */}
+                  {repo.language && (
+                    <div className="mt-auto flex items-center gap-1.5 pt-3">
+                      <span className="inline-block size-2.5 rounded-full bg-current opacity-60" />
+                      <span className="text-xs text-muted-foreground">
+                        {repo.language}
+                      </span>
+                    </div>
+                  )}
+                </a>
+              );
+            })}
           </div>
         )}
       </main>

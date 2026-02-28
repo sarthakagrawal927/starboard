@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { SortOption } from "@/hooks/use-starred-repos";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { getAvatarImageAttrs } from "@/lib/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,9 @@ export function TopBar({
   onSync,
 }: TopBarProps) {
   const { data: session } = useSession();
+  const userAvatar = session?.user?.image
+    ? getAvatarImageAttrs(session.user.image, 32)
+    : null;
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2.5 backdrop-blur-sm sm:gap-3 sm:px-4 sm:py-3 md:px-6">
@@ -174,10 +178,18 @@ export function TopBar({
             className="shrink-0 overflow-hidden rounded-full"
           >
             {session?.user?.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={session.user.image}
+                src={userAvatar!.src}
+                srcSet={userAvatar!.srcSet}
+                sizes={userAvatar!.sizes}
                 alt={session.user.name ?? "User"}
                 className="size-8 rounded-full"
+                width={32}
+                height={32}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
             ) : (
               <div className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium">

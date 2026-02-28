@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRepoDetail } from "@/hooks/use-repo-detail";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { getAvatarImageAttrs } from "@/lib/avatar";
 import {
   Heart,
   MessageSquare,
@@ -163,12 +163,10 @@ export default function RepoDetailPage() {
     );
   }
 
-  const isGitHubAvatar = repo.owner_avatar.includes(
-    "avatars.githubusercontent.com"
-  );
   const langColor = repo.language
     ? languageColors[repo.language] ?? "#8b8b8b"
     : null;
+  const ownerAvatar = getAvatarImageAttrs(repo.owner_avatar, 32);
 
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-6">
@@ -185,22 +183,19 @@ export default function RepoDetailPage() {
       <div className="rounded-lg border bg-card p-6">
         {/* Owner + name */}
         <div className="flex items-center gap-3">
-          {isGitHubAvatar ? (
-            <Image
-              src={repo.owner_avatar}
-              alt={repo.owner_login}
-              width={32}
-              height={32}
-              className="size-8 rounded-full"
-            />
-          ) : (
-            <img
-              src={repo.owner_avatar}
-              alt={repo.owner_login}
-              className="size-8 rounded-full"
-              loading="lazy"
-            />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={ownerAvatar.src}
+            srcSet={ownerAvatar.srcSet}
+            sizes={ownerAvatar.sizes}
+            alt={repo.owner_login}
+            width={32}
+            height={32}
+            className="size-8 rounded-full"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />
           <a
             href={repo.html_url}
             target="_blank"
@@ -282,9 +277,9 @@ export default function RepoDetailPage() {
         ) : (
           <div className="space-y-3">
             {comments.map((comment) => {
-              const commentAvatarIsGH = comment.user.avatar_url?.includes(
-                "avatars.githubusercontent.com"
-              );
+              const commentAvatar = comment.user.avatar_url
+                ? getAvatarImageAttrs(comment.user.avatar_url, 24)
+                : null;
               return (
                 <div
                   key={comment.id}
@@ -292,22 +287,18 @@ export default function RepoDetailPage() {
                 >
                   <div className="flex items-center gap-2">
                     {comment.user.avatar_url ? (
-                      commentAvatarIsGH ? (
-                        <Image
-                          src={comment.user.avatar_url}
-                          alt={comment.user.username}
-                          width={24}
-                          height={24}
-                          className="size-6 rounded-full"
-                        />
-                      ) : (
-                        <img
-                          src={comment.user.avatar_url}
-                          alt={comment.user.username}
-                          className="size-6 rounded-full"
-                          loading="lazy"
-                        />
-                      )
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={commentAvatar!.src}
+                        srcSet={commentAvatar!.srcSet}
+                        sizes={commentAvatar!.sizes}
+                        alt={comment.user.username}
+                        width={24}
+                        height={24}
+                        className="size-6 rounded-full"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <div className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
                         {comment.user.username[0]?.toUpperCase()}
