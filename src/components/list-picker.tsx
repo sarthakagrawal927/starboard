@@ -39,7 +39,6 @@ export function ListPicker({ repoId, currentListId, lists, onAssign }: ListPicke
           onClick={() => onAssign(repoId, null)}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
         >
-          <span className="inline-block size-2.5 rounded-full border border-muted-foreground/30" />
           <span className="flex-1 text-muted-foreground">None</span>
           {currentListId === null && <Check className="size-3.5 text-primary" />}
         </button>

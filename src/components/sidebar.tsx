@@ -21,6 +21,7 @@ import {
   List,
   Plus,
   Share2,
+  Check,
   Link,
   Tag as TagIcon,
 } from "lucide-react";
@@ -129,18 +130,26 @@ export function Sidebar({
     }
   }
 
-  async function handleShareList(e: React.MouseEvent, listId: number) {
+  async function handleShareList(e: React.MouseEvent, list: UserList) {
     e.stopPropagation();
     if (!onShareList) return;
     try {
-      const result = await onShareList(listId);
-      if (result.is_public && result.slug) {
+      if (list.is_public === 1 && list.slug) {
+        // Already public — just copy the link
         await navigator.clipboard.writeText(
-          window.location.origin + "/lists/" + result.slug
+          window.location.origin + "/lists/" + list.slug
         );
-        setCopiedListId(listId);
-        setTimeout(() => setCopiedListId(null), 2000);
+      } else {
+        // Make public, then copy
+        const result = await onShareList(list.id);
+        if (result.is_public && result.slug) {
+          await navigator.clipboard.writeText(
+            window.location.origin + "/lists/" + result.slug
+          );
+        }
       }
+      setCopiedListId(list.id);
+      setTimeout(() => setCopiedListId(null), 2000);
     } catch {
       // silently fail
     }
@@ -222,35 +231,29 @@ export function Sidebar({
                     <span className="flex-1 truncate">{list.name}</span>
                   </button>
                   {onShareList && (
-                    <button
-                      onClick={(e) => handleShareList(e, list.id)}
-                      className={cn(
-                        "shrink-0 rounded p-0.5 transition-colors hover:bg-accent-foreground/10",
-                        isShared
-                          ? "text-primary"
-                          : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                      )}
-                      aria-label={
-                        isCopied
-                          ? "Link copied"
-                          : isShared
-                            ? "Shared — click to copy link or unshare"
-                            : "Share list"
-                      }
-                      title={
-                        isCopied
-                          ? "Copied!"
-                          : isShared
-                            ? "Shared — click to copy link"
-                            : "Share list"
-                      }
-                    >
-                      {isCopied ? (
-                        <Link className="size-3.5" />
-                      ) : (
-                        <Share2 className="size-3.5" />
-                      )}
-                    </button>
+                    isCopied ? (
+                      <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        <Check className="size-3" />
+                        Copied!
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => handleShareList(e, list)}
+                        className={cn(
+                          "shrink-0 rounded p-0.5 transition-colors hover:bg-accent-foreground/10",
+                          isShared
+                            ? "text-primary"
+                            : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                        )}
+                        title={isShared ? "Copy share link" : "Share list"}
+                      >
+                        {isShared ? (
+                          <Link className="size-3.5" />
+                        ) : (
+                          <Share2 className="size-3.5" />
+                        )}
+                      </button>
+                    )
                   )}
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {count}
