@@ -39,3 +39,7 @@ CREATE TABLE IF NOT EXISTS user_repos (
   starred_at  TEXT DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, repo_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_repos_user ON user_repos(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_repos_list ON user_repos(user_id, list_id);
+CREATE INDEX IF NOT EXISTS idx_repos_language ON repos(language);
