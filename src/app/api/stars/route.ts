@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   if (tag) {
     // tags is a JSON array stored as TEXT, use instr for contains check
     whereClauses.push("instr(ur.tags, ?) > 0");
-    whereArgs.push(`"${tag}"`);
+    whereArgs.push(JSON.stringify(tag));
   }
 
   const whereSQL = whereClauses.join(" AND ");
