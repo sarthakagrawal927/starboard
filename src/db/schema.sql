@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS user_lists (
   color       TEXT NOT NULL DEFAULT '#6366f1',
   icon        TEXT,
   position    INTEGER NOT NULL DEFAULT 0,
+  is_public   INTEGER NOT NULL DEFAULT 0,
+  slug        TEXT,
+  description TEXT,
   created_at  TEXT DEFAULT (datetime('now'))
 );
 
@@ -40,6 +43,24 @@ CREATE TABLE IF NOT EXISTS user_repos (
   PRIMARY KEY (user_id, repo_id)
 );
 
+CREATE TABLE IF NOT EXISTS comments (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id     INTEGER NOT NULL,
+  user_id     TEXT NOT NULL REFERENCES users(id),
+  body        TEXT NOT NULL,
+  created_at  TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS likes (
+  user_id     TEXT NOT NULL REFERENCES users(id),
+  repo_id     INTEGER NOT NULL,
+  created_at  TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, repo_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_user_repos_user ON user_repos(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_repos_list ON user_repos(user_id, list_id);
 CREATE INDEX IF NOT EXISTS idx_repos_language ON repos(language);
+CREATE INDEX IF NOT EXISTS idx_comments_repo ON comments(repo_id);
+CREATE INDEX IF NOT EXISTS idx_likes_repo ON likes(repo_id);
+CREATE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug);

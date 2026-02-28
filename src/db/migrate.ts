@@ -12,6 +12,18 @@ async function migrate() {
   await db.execute("DROP TABLE IF EXISTS repo_tags");
   await db.execute("DROP TABLE IF EXISTS tags");
   await db.execute("DROP TABLE IF EXISTS stars_cache");
+  await db.execute("DROP TABLE IF EXISTS collection_repos");
+  await db.execute("DROP TABLE IF EXISTS collections");
+
+  // Add new columns to user_lists (idempotent)
+  const alters = [
+    "ALTER TABLE user_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE user_lists ADD COLUMN slug TEXT",
+    "ALTER TABLE user_lists ADD COLUMN description TEXT",
+  ];
+  for (const sql of alters) {
+    try { await db.execute(sql); } catch { /* column already exists */ }
+  }
 
   // Create new schema
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
