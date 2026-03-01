@@ -101,7 +101,7 @@ export function TopBar({
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 gap-1.5 text-xs"
+          className={`shrink-0 gap-1.5 text-xs transition-all${syncing ? " border-primary/50 text-primary" : ""}`}
           onClick={onSync}
           disabled={syncing}
         >
@@ -110,7 +110,7 @@ export function TopBar({
           ) : (
             <RefreshCw className="size-3.5" />
           )}
-          <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync"}</span>
+          <span className="hidden sm:inline">{syncing ? "Syncing…" : "Sync"}</span>
         </Button>
       )}
 

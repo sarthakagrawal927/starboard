@@ -10,6 +10,7 @@ import { useRepoTags } from "@/hooks/use-repo-tags";
 import { TopBar } from "@/components/top-bar";
 import { Sidebar } from "@/components/sidebar";
 import { RepoGrid } from "@/components/repo-grid";
+import { SyncAnimation, SyncProgressBar } from "@/components/sync-animation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -211,20 +212,29 @@ function StarsContent() {
         onSync={sync}
       />
 
+      {/* Progress bar for syncs when repos already loaded */}
+      {syncing && total > 0 && <SyncProgressBar />}
+
       {syncResult && !syncResult.unchanged && (
-        <div className="border-b bg-card px-4 py-3 md:px-6">
+        <div
+          className="border-b bg-card px-4 py-3 md:px-6"
+          style={{ animation: "slideDown 0.3s ease both" }}
+        >
           <div className="flex items-start justify-between gap-4">
             <div className="text-sm">
               <p className="font-medium">Sync complete</p>
               {syncResult.added.length > 0 && (
                 <p className="mt-1 text-green-500">
-                  + {syncResult.added.length} new: {syncResult.added.map((r) => r.full_name).join(", ")}
+                  +{syncResult.added.length} new: {syncResult.added.map((r) => r.full_name).join(", ")}
                 </p>
               )}
               {syncResult.removed.length > 0 && (
                 <p className="mt-1 text-red-400">
-                  - {syncResult.removed.length} unstarred: {syncResult.removed.map((r) => r.full_name).join(", ")}
+                  -{syncResult.removed.length} removed: {syncResult.removed.map((r) => r.full_name).join(", ")}
                 </p>
+              )}
+              {syncResult.unchanged && (
+                <p className="mt-1 text-muted-foreground">Everything up to date</p>
               )}
             </div>
             <button
@@ -234,21 +244,34 @@ function StarsContent() {
               &times;
             </button>
           </div>
+          <style>{`
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateY(-8px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
         </div>
       )}
 
-      {!reposLoading && total === 0 && !hasActiveFilters && (
+      {/* Initial import: full animated screen */}
+      {!reposLoading && total === 0 && !hasActiveFilters && syncing && (
+        <SyncAnimation />
+      )}
+
+      {!reposLoading && total === 0 && !hasActiveFilters && !syncing && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <svg viewBox="0 0 24 24" className="size-12 fill-muted-foreground/30" aria-hidden="true">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
           <p className="text-lg font-medium">No stars synced yet</p>
           <p className="text-sm text-muted-foreground">
-            Click Sync to fetch your GitHub starred repos.
+            Fetch your GitHub starred repos to get started.
           </p>
           <button
             onClick={sync}
-            disabled={syncing}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
-            {syncing ? "Syncing..." : "Sync now"}
+            Sync now
           </button>
         </div>
       )}
