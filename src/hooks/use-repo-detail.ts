@@ -23,22 +23,19 @@ interface RepoDetail {
     repo_created_at: string | null;
     repo_updated_at: string | null;
   };
-  likeCount: number;
   commentCount: number;
-  userLiked: boolean;
 }
 
-interface Comment {
+export interface Comment {
   id: number;
   body: string;
   created_at: string;
+  upvotes: number;
+  downvotes: number;
+  userVote: 1 | -1 | null;
   user: { id: string; username: string; avatar_url: string | null };
 }
 
-/**
- * Accepts owner/repo slug (e.g. "vercel/next.js").
- * Resolves to numeric ID via the lookup API, then uses numeric ID for sub-routes.
- */
 export function useRepoDetail(slug: string) {
   const { data, error, isLoading, mutate } = useSWR<RepoDetail>(
     slug ? `/api/repos/lookup?name=${encodeURIComponent(slug)}` : null,
@@ -52,15 +49,6 @@ export function useRepoDetail(slug: string) {
     fetcher
   );
 
-  const toggleLike = async () => {
-    if (!repoId) return;
-    const res = await fetch(`/api/repos/${repoId}/likes`, { method: "POST" });
-    if (!res.ok) throw new Error("Failed to toggle like");
-    const result = await res.json();
-    mutate();
-    return result;
-  };
-
   const addComment = async (body: string) => {
     if (!repoId) return;
     const res = await fetch(`/api/repos/${repoId}/comments`, {
@@ -73,15 +61,25 @@ export function useRepoDetail(slug: string) {
     mutate();
   };
 
+  const voteComment = async (commentId: number, value: 1 | -1) => {
+    if (!repoId) return;
+    const res = await fetch(`/api/repos/${repoId}/comments/${commentId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    if (!res.ok) throw new Error("Failed to vote");
+    // Optimistic-ish: just revalidate
+    mutateComments();
+  };
+
   return {
     repo: data?.repo ?? null,
-    likeCount: data?.likeCount ?? 0,
     commentCount: data?.commentCount ?? 0,
-    userLiked: data?.userLiked ?? false,
     comments: comments ?? [],
     isLoading,
     error,
-    toggleLike,
     addComment,
+    voteComment,
   };
 }

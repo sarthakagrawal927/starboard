@@ -58,9 +58,17 @@ CREATE TABLE IF NOT EXISTS likes (
   PRIMARY KEY (user_id, repo_id)
 );
 
+CREATE TABLE IF NOT EXISTS comment_votes (
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+  value      INTEGER NOT NULL CHECK(value IN (1, -1)),
+  PRIMARY KEY (user_id, comment_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_user_repos_user ON user_repos(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_repos_list ON user_repos(user_id, list_id);
 CREATE INDEX IF NOT EXISTS idx_repos_language ON repos(language);
 CREATE INDEX IF NOT EXISTS idx_comments_repo ON comments(repo_id);
 CREATE INDEX IF NOT EXISTS idx_likes_repo ON likes(repo_id);
 CREATE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug);
+CREATE INDEX IF NOT EXISTS idx_comment_votes_comment ON comment_votes(comment_id);
