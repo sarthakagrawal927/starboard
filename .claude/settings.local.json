@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git:*)",
+      "Bash(head:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm db:migrate:*)",
+      "Bash(set -a && source /Users/sarthakagrawal/Desktop/starboard/.env.local && set +a && npx tsx src/db/migrate.ts 2>&1)",
+      "WebFetch(domain:mystarboard.vercel.app)",
+      "Bash(sleep 30:*)",
+      "Bash(vercel:*)",
+      "Bash(set -a && source .env.local && set +a && npx tsx src/db/migrate.ts 2>&1)",
+      "Bash(set -a && source .env.local && set +a && npx tsx -e \"\nconst { createClient } = require\\('@libsql/client'\\);\nconst db = createClient\\({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN }\\);\ndb.execute\\(\\\\\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\\\\\"\\).then\\(r => console.log\\(r.rows\\)\\);\n\" 2>&1)",
+      "Bash(set -a && source .env.local && set +a && npx tsx -e \"\nconst { createClient } = require\\('@libsql/client'\\);\nconst db = createClient\\({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN }\\);\nPromise.all\\([\n  db.execute\\(\\\\\"SELECT sql FROM sqlite_master WHERE name='collections'\\\\\"\\),\n  db.execute\\(\\\\\"SELECT sql FROM sqlite_master WHERE name='collection_repos'\\\\\"\\),\n  db.execute\\(\\\\\"SELECT COUNT\\(*\\) as cnt FROM collections\\\\\"\\),\n  db.execute\\(\\\\\"SELECT COUNT\\(*\\) as cnt FROM collection_repos\\\\\"\\),\n]\\).then\\(\\([a,b,c,d]\\) => {\n  console.log\\('collections:', a.rows[0]?.sql\\);\n  console.log\\('collection_repos:', b.rows[0]?.sql\\);\n  console.log\\('collections count:', c.rows[0]?.cnt\\);\n  console.log\\('collection_repos count:', d.rows[0]?.cnt\\);\n}\\);\n\" 2>&1)",
+      "Bash(tail:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(pnpm exec:*)"
+    ]
+  }
+}
