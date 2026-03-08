@@ -1,4 +1,5 @@
 import { SignInButton } from "@/components/sign-in-button";
+import { SaaSMakerTestimonials, SaaSMakerChangelog } from "@/components/saasmaker-feedback";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -6,7 +7,7 @@ export default async function Home() {
   const session = await auth();
   if (session) redirect("/stars");
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-background dark:bg-[oklch(0.1_0_0)]">
+    <div className="flex min-h-svh flex-col items-center bg-background dark:bg-[oklch(0.1_0_0)]">
       <main className="flex w-full max-w-4xl flex-col items-center gap-16 px-6 py-24">
         {/* Hero */}
         <div className="flex flex-col items-center gap-6 text-center">
@@ -35,6 +36,18 @@ export default async function Home() {
             title="Organize"
             description="Tag repos with custom colored labels."
           />
+        </div>
+
+        {/* Testimonials */}
+        <div className="w-full max-w-3xl">
+          <h2 className="mb-6 text-center text-2xl font-bold">What people are saying</h2>
+          <SaaSMakerTestimonials />
+        </div>
+
+        {/* Changelog */}
+        <div className="w-full max-w-2xl">
+          <h2 className="mb-6 text-center text-2xl font-bold">Changelog</h2>
+          <SaaSMakerChangelog />
         </div>
       </main>
     </div>
