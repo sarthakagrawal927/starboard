@@ -127,7 +127,7 @@ function StarsContent() {
     sort: sortBy,
     limit: 50,
   });
-  const { lists, isLoading: listsLoading, createList, shareList, assignRepoToList } = useLists();
+  const { lists, isLoading: listsLoading, createList, deleteList, shareList, assignRepoToList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
   // Track whether we've loaded data at least once (to avoid showing sidebar skeleton on filter changes)
@@ -165,6 +165,14 @@ function StarsContent() {
     mutate();
   }, [assignRepoToList, mutate]);
 
+  const handleDeleteList = useCallback(async (id: number) => {
+    await deleteList(id);
+    if (selectedListId === id) {
+      setSelectedListId(null);
+    }
+    mutate();
+  }, [deleteList, mutate, selectedListId, setSelectedListId]);
+
   const handleTagSelect = useCallback((tag: string | null) => {
     setSelectedTag(tag ?? "");
   }, [setSelectedTag]);
@@ -189,6 +197,7 @@ function StarsContent() {
       selectedListId={selectedListId}
       onListSelect={handleListSelect}
       onCreateList={createList}
+      onDeleteList={handleDeleteList}
       onShareList={shareList}
       selectedTag={selectedTag || null}
       onTagSelect={handleTagSelect}
@@ -236,6 +245,11 @@ function StarsContent() {
               {syncResult.importedLists.length > 0 && (
                 <p className="mt-1 text-sky-500">
                   Imported {syncResult.importedLists.length} GitHub lists: {syncResult.importedLists.join(", ")}
+                </p>
+              )}
+              {syncResult.assignedRepos > 0 && (
+                <p className="mt-1 text-sky-500">
+                  Assigned {syncResult.assignedRepos} repos to imported GitHub lists.
                 </p>
               )}
               {syncResult.unchanged && (

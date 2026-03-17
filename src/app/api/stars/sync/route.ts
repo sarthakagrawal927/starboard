@@ -1,9 +1,27 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { fetchAllStarredRepos } from "@/lib/github";
-import { fetchPublicStarLists } from "@/lib/github-lists";
+import {
+  fetchPublicStarListRepoNames,
+  fetchPublicStarLists,
+  type GitHubStarList,
+} from "@/lib/github-lists";
 import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
+
+const BOGUS_IMPORTED_SORT_LISTS = new Set([
+  "name ascending (a-z)",
+  "name descending (z-a)",
+  "newest",
+  "oldest",
+  "last updated",
+]);
+
+interface GitHubListSyncResult {
+  importedLists: string[];
+  assignedRepos: number;
+  changed: boolean;
+}
 
 export async function POST() {
   const session = await auth();
@@ -19,20 +37,24 @@ export async function POST() {
     const result = await fetchAllStarredRepos(session.accessToken);
 
     if (result.notModified) {
-      const importedLists = username ? await importMissingGitHubLists(userId, username) : [];
+      const repoIdByFullName = await loadRepoIdsByFullName(userId);
+      const githubSync = username
+        ? await syncGitHubLists(userId, username, repoIdByFullName)
+        : emptyGitHubListSync();
+
       return NextResponse.json({
         added: [],
         removed: [],
-        importedLists,
-        totalRepos: 0,
-        unchanged: importedLists.length === 0,
+        importedLists: githubSync.importedLists,
+        assignedRepos: githubSync.assignedRepos,
+        totalRepos: repoIdByFullName.size,
+        unchanged: !githubSync.changed,
       });
     }
 
     const freshRepos = result.repos;
     const freshIds = new Set(freshRepos.map((r) => r.id));
 
-    // Load current user_repos
     const existing = await db.execute({
       sql: "SELECT repo_id FROM user_repos WHERE user_id = ?",
       args: [userId],
@@ -42,7 +64,6 @@ export async function POST() {
     const added = freshRepos.filter((r) => !existingIds.has(r.id));
     const removedIds = [...existingIds].filter((id) => !freshIds.has(id));
 
-    // Batch upsert all repos + insert new user_repos + delete removed in one round-trip
     const statements: InStatement[] = [];
 
     for (const repo of freshRepos) {
@@ -82,12 +103,12 @@ export async function POST() {
       });
     }
 
-    // Execute all in one batch round-trip
     await db.batch(statements);
 
-    const importedLists = username ? await importMissingGitHubLists(userId, username) : [];
+    const githubSync = username
+      ? await syncGitHubLists(userId, username, buildRepoIdByFullName(freshRepos))
+      : emptyGitHubListSync();
 
-    // Get removed repo info for response
     let removedRepos: { id: number; full_name: string; description: string | null }[] = [];
     if (removedIds.length > 0) {
       const placeholders = removedIds.map(() => "?").join(",");
@@ -105,9 +126,10 @@ export async function POST() {
     return NextResponse.json({
       added: added.map((r) => ({ id: r.id, full_name: r.full_name, description: r.description })),
       removed: removedRepos,
-      importedLists,
+      importedLists: githubSync.importedLists,
+      assignedRepos: githubSync.assignedRepos,
       totalRepos: freshRepos.length,
-      unchanged: added.length === 0 && removedIds.length === 0 && importedLists.length === 0,
+      unchanged: added.length === 0 && removedIds.length === 0 && !githubSync.changed,
     });
   } catch (error) {
     console.error("Sync failed:", error);
@@ -125,59 +147,240 @@ async function getGitHubUsername(userId: string): Promise<string | null> {
   return typeof username === "string" && username.trim().length > 0 ? username : null;
 }
 
-async function importMissingGitHubLists(userId: string, username: string): Promise<string[]> {
+async function syncGitHubLists(
+  userId: string,
+  username: string,
+  repoIdByFullName: Map<string, number>
+): Promise<GitHubListSyncResult> {
   try {
     const githubLists = await fetchPublicStarLists(username);
-    if (githubLists.length === 0) {
-      return [];
-    }
-
-    const existingLists = await db.execute({
-      sql: "SELECT name, position FROM user_lists WHERE user_id = ? ORDER BY position ASC",
+    const existingListsResult = await db.execute({
+      sql: `SELECT ul.id, ul.name, ul.description, ul.color, ul.position, COUNT(ur.repo_id) as repo_count
+            FROM user_lists ul
+            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id
+            WHERE ul.user_id = ?
+            GROUP BY ul.id
+            ORDER BY ul.position ASC`,
       args: [userId],
     });
+    const existingLists = existingListsResult.rows.map((row) => ({
+      id: row.id as number,
+      name: row.name as string,
+      description: row.description as string | null,
+      color: row.color as string,
+      position: row.position as number,
+      repoCount: row.repo_count as number,
+    }));
 
-    const existingNames = new Set(
-      existingLists.rows
-        .map((row) => row.name)
-        .filter((name): name is string => typeof name === "string")
-        .map(normalizeListName)
-    );
+    let changed = false;
+
+    const bogusSortListIds = existingLists
+      .filter((list) => list.repoCount === 0 && isBogusImportedSortList(list.name))
+      .map((list) => list.id);
+
+    if (bogusSortListIds.length > 0) {
+      const placeholders = bogusSortListIds.map(() => "?").join(",");
+      await db.execute({
+        sql: `DELETE FROM user_lists WHERE user_id = ? AND id IN (${placeholders})`,
+        args: [userId, ...bogusSortListIds],
+      });
+      changed = true;
+    }
+
+    if (githubLists.length === 0) {
+      return { importedLists: [], assignedRepos: 0, changed };
+    }
+
+    const activeExistingLists = existingLists.filter((list) => !bogusSortListIds.includes(list.id));
     let nextPosition =
-      existingLists.rows.reduce((max, row) => {
-        const position = typeof row.position === "number" ? row.position : -1;
-        return Math.max(max, position);
-      }, -1) + 1;
+      activeExistingLists.reduce((max, list) => Math.max(max, list.position), -1) + 1;
 
-    const statements: InStatement[] = [];
     const importedLists: string[] = [];
+    const matchedExistingIds = new Set<number>();
+    const githubListIds = new Map<string, number>();
 
     for (const list of githubLists) {
-      const normalizedName = normalizeListName(list.name);
-      if (!normalizedName || existingNames.has(normalizedName)) {
+      const existingMatch = activeExistingLists.find(
+        (candidate) =>
+          !matchedExistingIds.has(candidate.id) && matchesGitHubList(candidate.name, list)
+      );
+
+      if (existingMatch) {
+        matchedExistingIds.add(existingMatch.id);
+        githubListIds.set(list.slug, existingMatch.id);
+
+        if (
+          existingMatch.name !== list.name ||
+          normalizeNullableText(existingMatch.description) !== normalizeNullableText(list.description)
+        ) {
+          await db.execute({
+            sql: "UPDATE user_lists SET name = ?, description = ? WHERE id = ? AND user_id = ?",
+            args: [list.name, list.description, existingMatch.id, userId],
+          });
+          importedLists.push(list.name);
+          changed = true;
+        }
+
         continue;
       }
 
-      statements.push({
-        sql: "INSERT INTO user_lists (user_id, name, color, icon, position) VALUES (?, ?, ?, ?, ?)",
-        args: [userId, list.name, "#6366f1", null, nextPosition],
+      const insertResult = await db.execute({
+        sql: "INSERT INTO user_lists (user_id, name, color, icon, position, description) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+        args: [userId, list.name, "#6366f1", null, nextPosition, list.description],
       });
+      const listId = insertResult.rows[0]?.id as number | undefined;
+      if (typeof listId === "number") {
+        githubListIds.set(list.slug, listId);
+      }
       importedLists.push(list.name);
-      existingNames.add(normalizedName);
       nextPosition++;
+      changed = true;
     }
 
-    if (statements.length > 0) {
-      await db.batch(statements);
+    const importedListIds = [...githubListIds.values()];
+    if (importedListIds.length === 0) {
+      return { importedLists, assignedRepos: 0, changed };
     }
 
-    return importedLists;
+    const desiredAssignments = new Map<number, number>();
+
+    for (const list of githubLists) {
+      const listId = githubListIds.get(list.slug);
+      if (!listId) {
+        continue;
+      }
+
+      const repoFullNames = await fetchPublicStarListRepoNames(list.href);
+      for (const fullName of repoFullNames) {
+        const repoId = repoIdByFullName.get(normalizeRepoFullName(fullName));
+        if (!repoId || desiredAssignments.has(repoId)) {
+          continue;
+        }
+
+        desiredAssignments.set(repoId, listId);
+      }
+    }
+
+    const placeholders = importedListIds.map(() => "?").join(",");
+    const currentAssignmentsResult = await db.execute({
+      sql: `SELECT repo_id, list_id FROM user_repos WHERE user_id = ? AND list_id IN (${placeholders})`,
+      args: [userId, ...importedListIds],
+    });
+    const currentAssignments = new Map<number, number>(
+      currentAssignmentsResult.rows.map((row) => [row.repo_id as number, row.list_id as number])
+    );
+
+    if (!mapsEqual(currentAssignments, desiredAssignments)) {
+      changed = true;
+
+      if (currentAssignments.size > 0) {
+        await db.execute({
+          sql: `UPDATE user_repos SET list_id = NULL WHERE user_id = ? AND list_id IN (${placeholders})`,
+          args: [userId, ...importedListIds],
+        });
+      }
+
+      if (desiredAssignments.size > 0) {
+        const assignmentStatements: InStatement[] = [];
+        for (const [repoId, listId] of desiredAssignments) {
+          assignmentStatements.push({
+            sql: "UPDATE user_repos SET list_id = ? WHERE user_id = ? AND repo_id = ?",
+            args: [listId, userId, repoId],
+          });
+        }
+        await db.batch(assignmentStatements);
+      }
+    }
+
+    return {
+      importedLists,
+      assignedRepos: desiredAssignments.size,
+      changed,
+    };
   } catch (error) {
     console.warn("GitHub list import skipped:", error);
-    return [];
+    return emptyGitHubListSync();
   }
+}
+
+async function loadRepoIdsByFullName(userId: string): Promise<Map<string, number>> {
+  const result = await db.execute({
+    sql: `SELECT r.id, r.full_name
+          FROM user_repos ur
+          JOIN repos r ON r.id = ur.repo_id
+          WHERE ur.user_id = ?`,
+    args: [userId],
+  });
+
+  return new Map(
+    result.rows.map((row) => [normalizeRepoFullName(row.full_name as string), row.id as number])
+  );
+}
+
+function buildRepoIdByFullName(
+  repos: Array<{ id: number; full_name: string }>
+): Map<string, number> {
+  return new Map(repos.map((repo) => [normalizeRepoFullName(repo.full_name), repo.id]));
+}
+
+function emptyGitHubListSync(): GitHubListSyncResult {
+  return {
+    importedLists: [],
+    assignedRepos: 0,
+    changed: false,
+  };
+}
+
+function mapsEqual(left: Map<number, number>, right: Map<number, number>): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const [key, value] of left) {
+    if (right.get(key) !== value) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function normalizeListName(name: string): string {
   return name.trim().toLowerCase();
+}
+
+function normalizeNullableText(value: string | null): string {
+  return value?.trim() ?? "";
+}
+
+function normalizeRepoFullName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isBogusImportedSortList(name: string): boolean {
+  return BOGUS_IMPORTED_SORT_LISTS.has(normalizeListName(name));
+}
+
+function matchesGitHubList(existingName: string, githubList: GitHubStarList): boolean {
+  const normalizedExistingName = normalizeListName(existingName);
+  if (normalizedExistingName === normalizeListName(githubList.name)) {
+    return true;
+  }
+
+  return buildLegacyImportedNames(githubList).some(
+    (legacyName) => normalizedExistingName === normalizeListName(legacyName)
+  );
+}
+
+function buildLegacyImportedNames(list: GitHubStarList): string[] {
+  const names = new Set<string>();
+  names.add(list.name);
+  names.add(`${list.name} ${list.repoCount} repositories`);
+
+  if (list.description) {
+    names.add(`${list.name} ${list.description}`);
+    names.add(`${list.name} ${list.description} ${list.repoCount} repositories`);
+  }
+
+  return [...names];
 }

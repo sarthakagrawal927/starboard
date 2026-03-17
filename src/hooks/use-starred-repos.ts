@@ -53,6 +53,7 @@ export interface SyncResult {
   added: { id: number; full_name: string; description: string | null }[];
   removed: { id: number; full_name: string; description: string | null }[];
   importedLists: string[];
+  assignedRepos: number;
   totalRepos: number;
   unchanged: boolean;
 }

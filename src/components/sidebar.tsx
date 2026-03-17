@@ -23,6 +23,7 @@ import {
   Share2,
   Check,
   Link,
+  Trash2,
   Tag as TagIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ interface SidebarProps {
   selectedListId: number | null;
   onListSelect: (id: number | null) => void;
   onCreateList: (name: string, color?: string) => Promise<unknown>;
+  onDeleteList?: (id: number) => Promise<unknown>;
   onShareList?: (id: number) => Promise<{ is_public: boolean; slug: string }>;
   selectedTag: string | null;
   onTagSelect: (tag: string | null) => void;
@@ -105,6 +107,7 @@ export function Sidebar({
   selectedListId,
   onListSelect,
   onCreateList,
+  onDeleteList,
   onShareList,
   selectedTag,
   onTagSelect,
@@ -150,6 +153,22 @@ export function Sidebar({
       }
       setCopiedListId(list.id);
       setTimeout(() => setCopiedListId(null), 2000);
+    } catch {
+      // silently fail
+    }
+  }
+
+  async function handleDeleteList(e: React.MouseEvent, list: UserList) {
+    e.stopPropagation();
+    if (!onDeleteList) return;
+
+    const confirmed = window.confirm(
+      `Delete "${list.name}"? If it still exists on GitHub, it will be recreated on the next sync.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await onDeleteList(list.id);
     } catch {
       // silently fail
     }
@@ -257,6 +276,15 @@ export function Sidebar({
                           )}
                         </button>
                       )
+                    )}
+                    {onDeleteList && (
+                      <button
+                        onClick={(e) => handleDeleteList(e, list)}
+                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                        title="Delete list"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     )}
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                       {count}
