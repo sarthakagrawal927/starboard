@@ -82,6 +82,12 @@ function buildStarsUrl(opts: UseStarredReposOptions, offset: number): string {
   return `/api/stars${qs ? `?${qs}` : ""}`;
 }
 
+const EMPTY_FACETS: Facets = {
+  languages: [],
+  lists: [],
+  tags: [],
+};
+
 // Serialize filter options to a stable key for detecting filter changes
 function filterKey(opts: UseStarredReposOptions): string {
   return JSON.stringify({
@@ -98,6 +104,7 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
   const [allRepos, setAllRepos] = useState<UserRepo[]>([]);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [lastFacets, setLastFacets] = useState<Facets>(EMPTY_FACETS);
   const prevFilterKey = useRef(filterKey(opts));
 
   // First page via SWR (handles caching, dedup, revalidation)
@@ -125,6 +132,14 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
       }
     }
   }, [data, offset]);
+
+  // Facets are global for the signed-in user, so keep the last loaded set
+  // during filter transitions to avoid blanking the sidebar.
+  useEffect(() => {
+    if (data?.facets) {
+      setLastFacets(data.facets);
+    }
+  }, [data]);
 
   const total = data?.total ?? 0;
   const hasMore = allRepos.length < total;
@@ -169,7 +184,7 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
   return {
     repos: allRepos,
     total,
-    facets: data?.facets ?? { languages: [], lists: [], tags: [] },
+    facets: data?.facets ?? lastFacets,
     error,
     isLoading,
     loadingMore,

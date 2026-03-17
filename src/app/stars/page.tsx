@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringLiteral, parseAsArrayOf } from "nuqs";
@@ -130,12 +130,11 @@ function StarsContent() {
   const { lists, isLoading: listsLoading, createList, deleteList, shareList, assignRepoToList } = useLists();
   const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
-  // Track whether we've loaded data at least once (to avoid showing sidebar skeleton on filter changes)
-  const hasLoadedOnce = useRef(false);
-  if (!reposLoading && !listsLoading) {
-    hasLoadedOnce.current = true;
-  }
-  const showSidebarSkeleton = !hasLoadedOnce.current && (reposLoading || listsLoading);
+  const showSidebarSkeleton =
+    (reposLoading || listsLoading) &&
+    lists.length === 0 &&
+    facets.languages.length === 0 &&
+    facets.tags.length === 0;
 
   const allTags = facets.tags.map(([tag]) => tag);
 
