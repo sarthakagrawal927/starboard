@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringLiteral, parseAsArrayOf } from "nuqs";
-import { useStarredRepos, type SortOption } from "@/hooks/use-starred-repos";
+import { useStarredRepos } from "@/hooks/use-starred-repos";
 import { useLists } from "@/hooks/use-lists";
 import { useRepoTags } from "@/hooks/use-repo-tags";
 import { TopBar } from "@/components/top-bar";
@@ -231,6 +231,11 @@ function StarsContent() {
               {syncResult.removed.length > 0 && (
                 <p className="mt-1 text-red-400">
                   -{syncResult.removed.length} removed: {syncResult.removed.map((r) => r.full_name).join(", ")}
+                </p>
+              )}
+              {syncResult.importedLists.length > 0 && (
+                <p className="mt-1 text-sky-500">
+                  Imported {syncResult.importedLists.length} GitHub lists: {syncResult.importedLists.join(", ")}
                 </p>
               )}
               {syncResult.unchanged && (

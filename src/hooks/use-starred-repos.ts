@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -52,6 +52,7 @@ interface StarsResponse {
 export interface SyncResult {
   added: { id: number; full_name: string; description: string | null }[];
   removed: { id: number; full_name: string; description: string | null }[];
+  importedLists: string[];
   totalRepos: number;
   unchanged: boolean;
 }
@@ -92,7 +93,7 @@ function filterKey(opts: UseStarredReposOptions): string {
 }
 
 export function useStarredRepos(opts: UseStarredReposOptions = {}) {
-  const limit = opts.limit ?? 50;
+  const { mutate: globalMutate } = useSWRConfig();
   const [allRepos, setAllRepos] = useState<UserRepo[]>([]);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -155,7 +156,7 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
       setSyncResult(result);
       setAllRepos([]);
       setOffset(0);
-      mutate();
+      await Promise.all([mutate(), globalMutate("/api/lists")]);
       return result;
     } finally {
       setSyncing(false);
