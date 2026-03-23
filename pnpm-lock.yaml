@@ -18,8 +18,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@saas-maker/sdk':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.3.1
+        version: 0.3.1
       '@saas-maker/testimonials':
         specifier: ^0.2.0
         version: 0.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1433,8 +1433,8 @@ packages:
       react: '>=18'
       react-dom: '>=18'
 
-  '@saas-maker/sdk@0.2.0':
-    resolution: {integrity: sha512-lkb/0WGZzLuYwz6pt9i594YorORrW9FUObZxg9ell8gKz0IQA71d+bYSNgSfnQ42kU4BmKXO5UUf9lNW+O9g4g==}
+  '@saas-maker/sdk@0.3.1':
+    resolution: {integrity: sha512-RhIoYC4Is7HQ2aymJryyT/Nl9mXJ47MyzcfejYnplkU7yXR6bVz5KJkNKV5IdKQsNGxGus5j9DbMJvUjpSaU/Q==}
 
   '@saas-maker/testimonials@0.2.0':
     resolution: {integrity: sha512-u9ZojbYIg6zHajVbOpgDqtQYbQzxtOq4BDGB9jNARpeMHPpE5PvVbYO1qZXzQ2DQQN3PU6pu1cg84YUgU3TnuA==}
@@ -5391,7 +5391,7 @@ snapshots:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
 
-  '@saas-maker/sdk@0.2.0': {}
+  '@saas-maker/sdk@0.3.1': {}
 
   '@saas-maker/testimonials@0.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
