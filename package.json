@@ -13,7 +13,7 @@
     "@libsql/client": "^0.17.0",
     "@saas-maker/changelog-widget": "^0.2.0",
     "@saas-maker/feedback": "^0.2.0",
-    "@saas-maker/sdk": "^0.2.0",
+    "@saas-maker/sdk": "^0.3.1",
     "@saas-maker/testimonials": "^0.2.0",
     "@tanstack/react-virtual": "^3.13.18",
     "class-variance-authority": "^0.7.1",
