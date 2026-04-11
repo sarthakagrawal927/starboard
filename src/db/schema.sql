@@ -72,3 +72,12 @@ CREATE INDEX IF NOT EXISTS idx_comments_repo ON comments(repo_id);
 CREATE INDEX IF NOT EXISTS idx_likes_repo ON likes(repo_id);
 CREATE INDEX IF NOT EXISTS idx_user_lists_slug ON user_lists(slug);
 CREATE INDEX IF NOT EXISTS idx_comment_votes_comment ON comment_votes(comment_id);
+
+CREATE TABLE IF NOT EXISTS repo_embeddings (
+  repo_id    INTEGER PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+  embedding  F32_BLOB(768),
+  text_hash  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_repo_embeddings_vec
+  ON repo_embeddings(libsql_vector_idx(embedding, 'metric=cosine'));

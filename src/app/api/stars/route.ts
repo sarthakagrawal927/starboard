@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
+import { generateEmbedding } from "@/lib/embeddings";
 import { NextResponse, type NextRequest } from "next/server";
 import type { InStatement, InValue } from "@libsql/client";
 
@@ -26,10 +27,41 @@ export async function GET(request: NextRequest) {
   const whereClauses: string[] = ["ur.user_id = ?"];
   const whereArgs: InValue[] = [userId];
 
+  // Semantic search: try vector search when q is provided
+  let semanticRepoIds: number[] | null = null;
   if (q) {
-    whereClauses.push("(r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)");
-    const pattern = `%${q}%`;
-    whereArgs.push(pattern, pattern, pattern);
+    try {
+      const embeddingCountResult = await db.execute({
+        sql: `SELECT COUNT(*) as c FROM repo_embeddings re JOIN user_repos ur ON ur.repo_id = re.repo_id WHERE ur.user_id = ?`,
+        args: [userId],
+      });
+      const hasEmbeddings = (embeddingCountResult.rows[0]?.c as number) > 0;
+
+      if (hasEmbeddings) {
+        const queryEmbedding = await generateEmbedding(q);
+        const vectorResult = await db.execute({
+          sql: `SELECT re.repo_id, distance
+                FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
+                JOIN repo_embeddings re ON re.rowid = vt.id
+                JOIN user_repos ur ON ur.repo_id = re.repo_id AND ur.user_id = ?`,
+          args: [JSON.stringify(queryEmbedding), 200, userId],
+        });
+        semanticRepoIds = vectorResult.rows.map((row) => row.repo_id as number);
+      }
+    } catch (e) {
+      console.warn("Semantic search failed, falling back to LIKE:", e);
+    }
+
+    if (semanticRepoIds && semanticRepoIds.length > 0) {
+      const placeholders = semanticRepoIds.map(() => "?").join(", ");
+      whereClauses.push(`r.id IN (${placeholders})`);
+      whereArgs.push(...semanticRepoIds);
+    } else {
+      // Fallback to LIKE search
+      whereClauses.push("(r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)");
+      const pattern = `%${q}%`;
+      whereArgs.push(pattern, pattern, pattern);
+    }
   }
 
   if (languages.length > 0) {
@@ -55,14 +87,22 @@ export async function GET(request: NextRequest) {
 
   const whereSQL = whereClauses.join(" AND ");
 
-  // Sort mapping
+  // Sort mapping — use similarity order for semantic search with default sort
+  const useSemanticOrder = semanticRepoIds && semanticRepoIds.length > 0 && sort === "starred";
   const orderByMap: Record<string, string> = {
     starred: "ur.starred_at DESC",
     stars: "r.stargazers_count DESC",
     updated: "r.repo_updated_at DESC",
     name: "r.name ASC",
   };
-  const orderBy = orderByMap[sort] || orderByMap.starred;
+  let orderBy: string;
+  if (useSemanticOrder) {
+    // Preserve vector_top_k similarity order via CASE
+    const caseLines = semanticRepoIds!.map((id, i) => `WHEN ${id} THEN ${i}`).join(" ");
+    orderBy = `CASE r.id ${caseLines} ELSE 999999 END`;
+  } else {
+    orderBy = orderByMap[sort] || orderByMap.starred;
+  }
 
   try {
     // Main filtered query

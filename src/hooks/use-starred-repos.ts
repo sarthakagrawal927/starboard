@@ -173,6 +173,8 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
       setAllRepos([]);
       setOffset(0);
       await Promise.all([mutate(), globalMutate("/api/lists")]);
+      // Auto-generate embeddings for all repos missing them
+      fetch("/api/embeddings/generate", { method: "POST" }).catch(() => {});
       return result;
     } finally {
       setSyncing(false);

@@ -6,6 +6,7 @@ import {
   fetchPublicStarLists,
   type GitHubStarList,
 } from "@/lib/github-lists";
+import { buildRepoEmbeddingText, textHash, generateEmbeddings } from "@/lib/embeddings";
 import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
 
@@ -123,9 +124,33 @@ export async function POST() {
       }));
     }
 
+    let embedded = 0;
+    if (added.length > 0) {
+      try {
+        const texts = added.map((r) =>
+          buildRepoEmbeddingText({
+            full_name: r.full_name,
+            description: r.description,
+            language: r.language,
+            topics: r.topics,
+          })
+        );
+        const embeddings = await generateEmbeddings(texts);
+        const embStmts: InStatement[] = added.map((r, i) => ({
+          sql: "INSERT OR REPLACE INTO repo_embeddings (repo_id, embedding, text_hash) VALUES (?, vector(?), ?)",
+          args: [r.id, JSON.stringify(embeddings[i]), textHash(texts[i])],
+        }));
+        await db.batch(embStmts);
+        embedded = added.length;
+      } catch (error) {
+        console.warn("Embedding generation failed:", error);
+      }
+    }
+
     return NextResponse.json({
       added: added.map((r) => ({ id: r.id, full_name: r.full_name, description: r.description })),
       removed: removedRepos,
+      embedded,
       importedLists: githubSync.importedLists,
       assignedRepos: githubSync.assignedRepos,
       totalRepos: freshRepos.length,

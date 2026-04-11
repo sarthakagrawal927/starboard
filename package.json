@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "npx tsx src/db/migrate.ts"
+    "db:migrate": "npx tsx src/db/migrate.ts",
+    "db:seed-embeddings": "npx tsx src/db/seed-embeddings.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
