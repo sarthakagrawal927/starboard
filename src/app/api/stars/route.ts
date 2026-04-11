@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       if (hasEmbeddings) {
         const queryEmbedding = await generateEmbedding(q);
         const vectorResult = await db.execute({
-          sql: `SELECT re.repo_id, distance
+          sql: `SELECT re.repo_id
                 FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
                 JOIN repo_embeddings re ON re.rowid = vt.id
                 JOIN user_repos ur ON ur.repo_id = re.repo_id AND ur.user_id = ?`,
