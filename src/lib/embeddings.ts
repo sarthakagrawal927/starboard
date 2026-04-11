@@ -68,8 +68,23 @@ export async function generateEmbeddings(
   return results;
 }
 
-/** Convenience: embed a single text (e.g. a search query). */
+/** LRU cache for query embeddings — avoids re-embedding the same search query. */
+const CACHE_MAX = 100;
+const embeddingCache = new Map<string, number[]>();
+
+/** Convenience: embed a single text (e.g. a search query). Cached. */
 export async function generateEmbedding(text: string): Promise<number[]> {
+  const cached = embeddingCache.get(text);
+  if (cached) return cached;
+
   const [embedding] = await generateEmbeddings([text]);
+
+  // Evict oldest if at capacity
+  if (embeddingCache.size >= CACHE_MAX) {
+    const oldest = embeddingCache.keys().next().value!;
+    embeddingCache.delete(oldest);
+  }
+  embeddingCache.set(text, embedding);
+
   return embedding;
 }

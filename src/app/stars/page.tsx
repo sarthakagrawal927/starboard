@@ -114,7 +114,7 @@ function StarsContent() {
 
   // Debounce search input
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 500);
     return () => clearTimeout(t);
   }, [searchQuery]);
 

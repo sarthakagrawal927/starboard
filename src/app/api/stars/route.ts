@@ -4,6 +4,20 @@ import { generateEmbedding } from "@/lib/embeddings";
 import { NextResponse, type NextRequest } from "next/server";
 import type { InStatement, InValue } from "@libsql/client";
 
+// Cache embedding existence check per user (5 min TTL)
+const embeddingCheckCache = new Map<string, { value: boolean; expires: number }>();
+async function hasEmbeddings(userId: string): Promise<boolean> {
+  const cached = embeddingCheckCache.get(userId);
+  if (cached && Date.now() < cached.expires) return cached.value;
+  const r = await db.execute({
+    sql: "SELECT 1 FROM repo_embeddings re JOIN user_repos ur ON ur.repo_id = re.repo_id WHERE ur.user_id = ? LIMIT 1",
+    args: [userId],
+  });
+  const value = r.rows.length > 0;
+  embeddingCheckCache.set(userId, { value, expires: Date.now() + 5 * 60_000 });
+  return value;
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -43,13 +57,8 @@ export async function GET(request: NextRequest) {
     // 2. Semantic matches via vector search
     let semanticIds: number[] = [];
     try {
-      const embeddingCountResult = await db.execute({
-        sql: `SELECT COUNT(*) as c FROM repo_embeddings re JOIN user_repos ur ON ur.repo_id = re.repo_id WHERE ur.user_id = ?`,
-        args: [userId],
-      });
-      if ((embeddingCountResult.rows[0]?.c as number) > 0) {
+      if (await hasEmbeddings(userId)) {
         const queryEmbedding = await generateEmbedding(q);
-        // Two-step: vector search first, then user filtering in the main query
         const vectorResult = await db.execute({
           sql: `SELECT re.repo_id
                 FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt

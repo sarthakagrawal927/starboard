@@ -8,6 +8,9 @@ import {
 import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
 
+// Prevent concurrent runs per user
+const activeJobs = new Set<string>();
+
 export async function POST() {
   const session = await auth();
   if (!session?.user?.githubId) {
@@ -16,6 +19,11 @@ export async function POST() {
 
   const userId = session.user.githubId;
 
+  if (activeJobs.has(userId)) {
+    return NextResponse.json({ skipped: true, reason: "already running" });
+  }
+
+  activeJobs.add(userId);
   try {
     const result = await db.execute({
       sql: `SELECT r.id, r.full_name, r.description, r.language, r.topics, re.text_hash
@@ -67,5 +75,7 @@ export async function POST() {
       { error: "Embedding generation failed" },
       { status: 500 }
     );
+  } finally {
+    activeJobs.delete(userId);
   }
 }
