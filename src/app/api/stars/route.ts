@@ -27,39 +27,53 @@ export async function GET(request: NextRequest) {
   const whereClauses: string[] = ["ur.user_id = ?"];
   const whereArgs: InValue[] = [userId];
 
-  // Semantic search: try vector search when q is provided
-  let semanticRepoIds: number[] | null = null;
+  // Search: exact LIKE matches first, then semantic results appended
+  let rankedRepoIds: number[] | null = null;
   if (q) {
+    const pattern = `%${q}%`;
+
+    // 1. Exact text matches (name, full_name, description)
+    const exactResult = await db.execute({
+      sql: `SELECT r.id FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
+            WHERE ur.user_id = ? AND (r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)`,
+      args: [userId, pattern, pattern, pattern],
+    });
+    const exactIds = exactResult.rows.map((r) => r.id as number);
+
+    // 2. Semantic matches via vector search
+    let semanticIds: number[] = [];
     try {
       const embeddingCountResult = await db.execute({
         sql: `SELECT COUNT(*) as c FROM repo_embeddings re JOIN user_repos ur ON ur.repo_id = re.repo_id WHERE ur.user_id = ?`,
         args: [userId],
       });
-      const hasEmbeddings = (embeddingCountResult.rows[0]?.c as number) > 0;
-
-      if (hasEmbeddings) {
+      if ((embeddingCountResult.rows[0]?.c as number) > 0) {
         const queryEmbedding = await generateEmbedding(q);
+        // Two-step: vector search first, then user filtering in the main query
         const vectorResult = await db.execute({
           sql: `SELECT re.repo_id
                 FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
-                JOIN repo_embeddings re ON re.rowid = vt.id
-                JOIN user_repos ur ON ur.repo_id = re.repo_id AND ur.user_id = ?`,
-          args: [JSON.stringify(queryEmbedding), 200, userId],
+                JOIN repo_embeddings re ON re.rowid = vt.id`,
+          args: [JSON.stringify(queryEmbedding), 200],
         });
-        semanticRepoIds = vectorResult.rows.map((row) => row.repo_id as number);
+        semanticIds = vectorResult.rows.map((r) => r.repo_id as number);
       }
     } catch (e) {
-      console.warn("Semantic search failed, falling back to LIKE:", e);
+      console.warn("Semantic search failed:", e);
     }
 
-    if (semanticRepoIds && semanticRepoIds.length > 0) {
-      const placeholders = semanticRepoIds.map(() => "?").join(", ");
+    // 3. Merge: exact first, then semantic (deduped)
+    const exactSet = new Set(exactIds);
+    const merged = [...exactIds, ...semanticIds.filter((id) => !exactSet.has(id))];
+
+    if (merged.length > 0) {
+      rankedRepoIds = merged;
+      const placeholders = merged.map(() => "?").join(", ");
       whereClauses.push(`r.id IN (${placeholders})`);
-      whereArgs.push(...semanticRepoIds);
+      whereArgs.push(...merged);
     } else {
-      // Fallback to LIKE search
+      // No matches at all — still use LIKE so SQL doesn't return everything
       whereClauses.push("(r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)");
-      const pattern = `%${q}%`;
       whereArgs.push(pattern, pattern, pattern);
     }
   }
@@ -87,8 +101,8 @@ export async function GET(request: NextRequest) {
 
   const whereSQL = whereClauses.join(" AND ");
 
-  // Sort mapping — use similarity order for semantic search with default sort
-  const useSemanticOrder = semanticRepoIds && semanticRepoIds.length > 0 && sort === "starred";
+  // Sort mapping — use ranked order (exact first, then semantic) with default sort
+  const useRankedOrder = rankedRepoIds && rankedRepoIds.length > 0 && sort === "starred";
   const orderByMap: Record<string, string> = {
     starred: "ur.starred_at DESC",
     stars: "r.stargazers_count DESC",
@@ -96,9 +110,9 @@ export async function GET(request: NextRequest) {
     name: "r.name ASC",
   };
   let orderBy: string;
-  if (useSemanticOrder) {
-    // Preserve vector_top_k similarity order via CASE
-    const caseLines = semanticRepoIds!.map((id, i) => `WHEN ${id} THEN ${i}`).join(" ");
+  if (useRankedOrder) {
+    // Exact matches first (lower index), then semantic matches in similarity order
+    const caseLines = rankedRepoIds!.map((id, i) => `WHEN ${id} THEN ${i}`).join(" ");
     orderBy = `CASE r.id ${caseLines} ELSE 999999 END`;
   } else {
     orderBy = orderByMap[sort] || orderByMap.starred;
