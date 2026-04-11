@@ -3,12 +3,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
-const fetcher = (url: string) =>
-  fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
-  });
-
 export type SortOption = "recently-starred" | "most-stars" | "recently-updated" | "name-az";
 
 // Map frontend sort names to API sort params
@@ -106,19 +100,33 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastFacets, setLastFacets] = useState<Facets>(EMPTY_FACETS);
   const prevFilterKey = useRef(filterKey(opts));
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
 
-  // First page via SWR (handles caching, dedup, revalidation)
+  // First page via SWR — abort previous in-flight search on key change
   const url = buildStarsUrl(opts, 0);
-  const { data, error, isLoading, mutate } = useSWR<StarsResponse>(url, fetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60000 * 5,
-  });
+  const { data, error, isLoading, mutate } = useSWR<StarsResponse>(
+    url,
+    (url: string) => {
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = new AbortController();
+      return fetch(url, { signal: searchAbortRef.current.signal }).then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      });
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000 * 5,
+    }
+  );
 
-  // Reset accumulated repos when filters change or first page data changes
+  // Reset accumulated repos when filters change — abort stale loadMore
   useEffect(() => {
     const currentKey = filterKey(opts);
     if (currentKey !== prevFilterKey.current) {
       prevFilterKey.current = currentKey;
+      loadMoreAbortRef.current?.abort();
       setAllRepos([]);
       setOffset(0);
     }
@@ -146,15 +154,20 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
+    loadMoreAbortRef.current?.abort();
+    loadMoreAbortRef.current = new AbortController();
     const nextOffset = allRepos.length;
     setLoadingMore(true);
     try {
       const nextUrl = buildStarsUrl(opts, nextOffset);
-      const res = await fetch(nextUrl);
+      const res = await fetch(nextUrl, { signal: loadMoreAbortRef.current.signal });
       if (!res.ok) throw new Error(`${res.status}`);
       const page: StarsResponse = await res.json();
       setAllRepos((prev) => [...prev, ...page.repos]);
       setOffset(nextOffset);
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      throw e;
     } finally {
       setLoadingMore(false);
     }
