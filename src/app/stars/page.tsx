@@ -119,7 +119,7 @@ function StarsContent() {
   }, [searchQuery]);
 
   // Data hooks
-  const { repos, total, facets, isLoading: reposLoading, loadingMore, hasMore, loadMore, syncing, sync, syncResult, dismissSyncResult, mutate } = useStarredRepos({
+  const { repos, total, facets, isLoading: reposLoading, isValidating, loadingMore, hasMore, loadMore, syncing, sync, syncResult, dismissSyncResult, mutate } = useStarredRepos({
     q: debouncedSearch,
     language: selectedLanguages,
     listId: selectedListId,
@@ -315,6 +315,7 @@ function StarsContent() {
               repos={repos}
               viewMode={viewMode}
               isLoading={reposLoading}
+              isValidating={isValidating}
               repoTagMap={repoTagMap}
               allTags={allTags}
               onAddTag={addTag}

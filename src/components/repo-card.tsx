@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { UserRepo } from "@/hooks/use-starred-repos";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +61,7 @@ interface RepoCardProps {
   viewMode?: "grid" | "list";
 }
 
-export function RepoCard({
+export const RepoCard = memo(function RepoCard({
   repo,
   tags = [],
   allTags,
@@ -235,4 +236,4 @@ export function RepoCard({
       </div>
     </div>
   );
-}
+});

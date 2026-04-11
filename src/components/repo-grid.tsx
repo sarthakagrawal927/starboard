@@ -19,6 +19,7 @@ interface RepoGridProps {
   repos: UserRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
+  isValidating?: boolean;
   repoTagMap?: Record<number, string[]>;
   allTags?: string[];
   onAddTag?: (repoId: number, tag: string) => void;
@@ -76,6 +77,7 @@ export function RepoGrid({
   repos,
   viewMode,
   isLoading,
+  isValidating,
   repoTagMap = {},
   allTags,
   onAddTag,
@@ -188,7 +190,7 @@ export function RepoGrid({
   }
 
   return (
-    <div ref={parentRef} className="h-[calc(100svh-65px)] overflow-auto">
+    <div ref={parentRef} className={`h-[calc(100svh-65px)] overflow-auto transition-opacity duration-150${isValidating && repos.length > 0 ? " opacity-60" : ""}`}>
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,

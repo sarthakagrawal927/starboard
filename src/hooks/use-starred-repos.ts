@@ -103,14 +103,14 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
   const searchAbortRef = useRef<AbortController | null>(null);
   const loadMoreAbortRef = useRef<AbortController | null>(null);
 
-  // First page via SWR — abort previous in-flight search on key change
+  // First page via SWR
   const url = buildStarsUrl(opts, 0);
-  const { data, error, isLoading, mutate } = useSWR<StarsResponse>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<StarsResponse>(
     url,
     (url: string) => {
-      searchAbortRef.current?.abort();
-      searchAbortRef.current = new AbortController();
-      return fetch(url, { signal: searchAbortRef.current.signal }).then((r) => {
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      return fetch(url, { signal: controller.signal }).then((r) => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json();
       });
@@ -118,26 +118,30 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000 * 5,
+      keepPreviousData: true,
+      errorRetryCount: 1,
+      onError: (err) => {
+        // Don't let SWR retry aborted requests
+        if (err?.name === "AbortError") return;
+      },
     }
   );
 
-  // Reset accumulated repos when filters change — abort stale loadMore
+  // Abort stale requests and reset pagination when filters change
   useEffect(() => {
     const currentKey = filterKey(opts);
     if (currentKey !== prevFilterKey.current) {
       prevFilterKey.current = currentKey;
+      searchAbortRef.current?.abort();
       loadMoreAbortRef.current?.abort();
-      setAllRepos([]);
       setOffset(0);
     }
   }, [opts]);
 
-  // Sync first page data into allRepos
+  // Sync first page data into allRepos — replaces stale data on filter change
   useEffect(() => {
-    if (data?.repos) {
-      if (offset === 0) {
-        setAllRepos(data.repos);
-      }
+    if (data?.repos && offset === 0) {
+      setAllRepos(data.repos);
     }
   }, [data, offset]);
 
@@ -201,7 +205,8 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
     total,
     facets: data?.facets ?? lastFacets,
     error,
-    isLoading,
+    isLoading: isLoading && allRepos.length === 0,
+    isValidating,
     loadingMore,
     hasMore,
     loadMore,

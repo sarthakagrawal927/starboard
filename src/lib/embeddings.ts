@@ -50,6 +50,7 @@ export async function generateEmbeddings(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${GATEWAY_KEY}`,
+        "x-gateway-project-id": "starboard",
       },
       body: JSON.stringify({ model: EMBEDDING_MODEL, input: batch }),
     });
