@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Cloudflare Pages
 on:
   push:
     branches: [main]
@@ -20,10 +20,22 @@ jobs:
         with: { node-version: '20', cache: pnpm }
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm cf:build
-      - uses: cloudflare/wrangler-action@v3
+      - name: Bundle worker
+        run: wrangler deploy --dry-run --outdir .cf-pages-bundle
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      - name: Assemble pages directory
+        run: |
+          mkdir -p .cf-pages-out
+          cp -r .open-next/assets/. .cf-pages-out/
+          cp .cf-pages-bundle/worker.js .cf-pages-out/_worker.js
+          cp .cf-pages-bundle/*.wasm .cf-pages-out/ 2>/dev/null || true
+          cp .cf-pages-bundle/*.bin .cf-pages-out/ 2>/dev/null || true
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: deploy
+          command: pages deploy .cf-pages-out --project-name=starboard --branch=main
 
   deploy-preview:
     if: github.event_name == 'pull_request'
@@ -40,11 +52,22 @@ jobs:
         with: { node-version: '20', cache: pnpm }
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm cf:build
-      - name: Deploy preview worker
+      - name: Bundle worker
+        run: wrangler deploy --dry-run --outdir .cf-pages-bundle
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      - name: Assemble pages directory
+        run: |
+          mkdir -p .cf-pages-out
+          cp -r .open-next/assets/. .cf-pages-out/
+          cp .cf-pages-bundle/worker.js .cf-pages-out/_worker.js
+          cp .cf-pages-bundle/*.wasm .cf-pages-out/ 2>/dev/null || true
+          cp .cf-pages-bundle/*.bin .cf-pages-out/ 2>/dev/null || true
+      - name: Deploy preview to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: deploy --name starboard-pr-${{ github.event.number }}
+          command: pages deploy .cf-pages-out --project-name=starboard --branch=pr-${{ github.event.number }}
       - name: Comment preview URL on PR
         uses: actions/github-script@v7
         with:
@@ -53,7 +76,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 **Preview:** https://starboard-pr-${{ github.event.number }}.${{ github.repository_owner }}.workers.dev`
+              body: `🚀 **Preview:** https://pr-${{ github.event.number }}.starboard-69m.pages.dev`
             })
 
   cleanup-preview:
@@ -63,4 +86,4 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          command: delete --name starboard-pr-${{ github.event.number }} --force
+          command: pages deployment delete --project-name=starboard --deployment-id=pr-${{ github.event.number }} --force

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate": "npx tsx src/db/migrate.ts",
     "db:seed-embeddings": "npx tsx src/db/seed-embeddings.ts",
+    "cf:build": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
     "build:cf": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
     "preview:cf": "pnpm build:cf && opennextjs-cloudflare preview",
     "deploy:cf": "pnpm build:cf && opennextjs-cloudflare deploy",
