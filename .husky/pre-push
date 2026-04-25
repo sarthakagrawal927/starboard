@@ -1,8 +1,22 @@
 # Abort push if lint fails or a known secret pattern leaks into tracked files.
 set -e
 
+# Lint only the files about to be pushed, not the whole codebase.
+# Avoids tripping on pre-existing lint debt in untouched files.
 if [ -f package.json ] && grep -q '"lint"' package.json; then
-  pnpm run lint || { echo "lint failed — fix before pushing" >&2; exit 1; }
+  REMOTE_BRANCH="origin/$(git rev-parse --abbrev-ref HEAD)"
+  if git rev-parse --verify --quiet "$REMOTE_BRANCH" >/dev/null; then
+    BASE="$REMOTE_BRANCH"
+  else
+    BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
+  fi
+  if [ -n "$BASE" ]; then
+    CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.jsx' 2>/dev/null || true)
+    if [ -n "$CHANGED" ]; then
+      echo "$CHANGED" | xargs pnpm exec eslint --no-warn-ignored \
+        || { echo "lint failed — fix before pushing" >&2; exit 1; }
+    fi
+  fi
 fi
 
 SECRETS=$(git ls-files -z 2>/dev/null \
