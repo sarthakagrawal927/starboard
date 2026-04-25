@@ -1,0 +1,48 @@
+name: Seed popular repos
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # 03:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      daily_limit:
+        description: 'Embeddings to generate this run'
+        required: false
+        default: '1000'
+
+concurrency:
+  group: seed-popular
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run seed script
+        run: npx tsx scripts/seed-popular.ts
+        env:
+          # PAT with public_repo:read. Falls back to the runner's GITHUB_TOKEN
+          # which has 1000/hr search quota — enough for a single daily run.
+          GITHUB_TOKEN: ${{ secrets.GH_SEED_TOKEN || secrets.GITHUB_TOKEN }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          AI_GATEWAY_URL: ${{ secrets.AI_GATEWAY_URL }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          SEED_DAILY_LIMIT: ${{ github.event.inputs.daily_limit || '1000' }}
+          MIN_STARS_FLOOR: '5000'

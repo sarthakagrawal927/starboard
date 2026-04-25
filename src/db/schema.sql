@@ -81,3 +81,19 @@ CREATE TABLE IF NOT EXISTS repo_embeddings (
 
 CREATE INDEX IF NOT EXISTS idx_repo_embeddings_vec
   ON repo_embeddings(libsql_vector_idx(embedding, 'metric=cosine'));
+
+-- Cursor for the daily GH Action that seeds popular repos.
+-- One row, id=1. Walks GH search top-down by star count, resets when the walk
+-- completes so the next run rediscovers newly-eligible repos and refreshes
+-- metadata drift on existing rows.
+CREATE TABLE IF NOT EXISTS seed_cursor (
+  id              INTEGER PRIMARY KEY CHECK(id = 1),
+  next_max_stars  INTEGER NOT NULL DEFAULT 999999999,
+  next_page       INTEGER NOT NULL DEFAULT 1,
+  updated_at      TEXT    DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO seed_cursor (id) VALUES (1);
+
+CREATE INDEX IF NOT EXISTS idx_repos_stars ON repos(stargazers_count DESC);
+CREATE INDEX IF NOT EXISTS idx_repos_updated ON repos(repo_updated_at);
