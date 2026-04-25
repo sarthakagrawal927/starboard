@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRepoDetail } from "@/hooks/use-repo-detail";
+import { useSimilarRepos } from "@/hooks/use-similar-repos";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ import {
   ThumbsDown,
   Calendar,
   GitFork,
+  Sparkles,
 } from "lucide-react";
 
 const languageColors: Record<string, string> = {
@@ -130,6 +132,7 @@ export default function RepoDetailPage() {
 
   const { repo, commentCount, comments, isLoading, error, addComment, voteComment } =
     useRepoDetail(repoSlug);
+  const { similar, isLoading: similarLoading } = useSimilarRepos(repo?.id);
 
   const [commentBody, setCommentBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -298,6 +301,85 @@ export default function RepoDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Similar repos */}
+      {(similarLoading || similar.length > 0) && (
+        <div className="mt-6">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Sparkles className="size-3.5 text-primary" />
+            Similar in your stars
+          </h2>
+          {similarLoading ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-20 rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {similar.map((s) => {
+                const langColor = s.language
+                  ? (languageColors[s.language] ?? "#8b8b8b")
+                  : null;
+                const avatar = getAvatarImageAttrs(s.owner.avatar_url, 24);
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/explore/${s.full_name}`}
+                    className="group rounded-xl border bg-card p-3 transition-colors hover:bg-accent/50"
+                  >
+                    <div className="flex items-start gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatar.src}
+                        srcSet={avatar.srcSet}
+                        sizes={avatar.sizes}
+                        alt={s.owner.login}
+                        width={24}
+                        height={24}
+                        className="size-6 shrink-0 rounded-full"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          <span className="text-muted-foreground">
+                            {s.owner.login}/
+                          </span>
+                          {s.name}
+                        </p>
+                        {s.description && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            {s.description}
+                          </p>
+                        )}
+                        <div className="mt-1.5 flex items-center gap-2.5 text-[11px] text-muted-foreground">
+                          {s.language && (
+                            <span className="flex items-center gap-1">
+                              <span
+                                className="inline-block size-2 rounded-full"
+                                style={{ backgroundColor: langColor ?? undefined }}
+                              />
+                              {s.language}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-0.5">
+                            <Star className="size-3 fill-current" />
+                            {formatStarCount(s.stargazers_count)}
+                          </span>
+                          <span className="ml-auto tabular-nums">
+                            {Math.round(s.similarity * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Comments section */}
       <div className="mt-6">

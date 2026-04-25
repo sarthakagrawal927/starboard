@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { generateEmbedding } from "@/lib/embeddings";
+import { rrfFuse } from "@/lib/search";
 import { NextResponse, type NextRequest } from "next/server";
 import type { InStatement, InValue } from "@libsql/client";
 
@@ -41,49 +42,85 @@ export async function GET(request: NextRequest) {
   const whereClauses: string[] = ["ur.user_id = ?"];
   const whereArgs: InValue[] = [userId];
 
-  // Search: exact LIKE matches first, then semantic results appended
+  // Hybrid search: rank-fuse lexical (LIKE w/ column priority) + vector (cosine).
+  // Reciprocal Rank Fusion: score = sum 1/(K + rank_i). Items in both lists rise.
   let rankedRepoIds: number[] | null = null;
   if (q) {
     const pattern = `%${q}%`;
+    const RRF_K = 60;
+    const VEC_TOP_K = 500;
+    const VEC_DIST_MAX = 0.55; // cosine distance cutoff (lower = more similar)
 
-    // 1. Exact text matches (name, full_name, description)
-    const exactResult = await db.execute({
-      sql: `SELECT r.id FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
-            WHERE ur.user_id = ? AND (r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)`,
-      args: [userId, pattern, pattern, pattern],
+    // 1. Lexical matches across name, full_name, description, topics, tags, notes.
+    //    NOCASE for case-insensitive. Order by column priority (name > full_name > rest).
+    const lexResult = await db.execute({
+      sql: `SELECT r.id,
+                   CASE
+                     WHEN r.name        LIKE ? COLLATE NOCASE THEN 0
+                     WHEN r.full_name   LIKE ? COLLATE NOCASE THEN 1
+                     WHEN r.description LIKE ? COLLATE NOCASE THEN 2
+                     WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
+                     WHEN ur.tags       LIKE ? COLLATE NOCASE THEN 4
+                     WHEN ur.notes      LIKE ? COLLATE NOCASE THEN 5
+                     ELSE 6
+                   END AS priority
+            FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
+            WHERE ur.user_id = ?
+              AND (r.name        LIKE ? COLLATE NOCASE
+                OR r.full_name   LIKE ? COLLATE NOCASE
+                OR r.description LIKE ? COLLATE NOCASE
+                OR r.topics      LIKE ? COLLATE NOCASE
+                OR ur.tags       LIKE ? COLLATE NOCASE
+                OR ur.notes      LIKE ? COLLATE NOCASE)
+            ORDER BY priority ASC`,
+      args: [
+        pattern, pattern, pattern, pattern, pattern, pattern,
+        userId,
+        pattern, pattern, pattern, pattern, pattern, pattern,
+      ],
     });
-    const exactIds = exactResult.rows.map((r) => r.id as number);
+    const lexIds = lexResult.rows.map((r) => r.id as number);
 
-    // 2. Semantic matches via vector search
-    let semanticIds: number[] = [];
+    // 2. Semantic matches via vector_top_k. Pull distance, drop the noisy tail.
+    //    vector_top_k is global; user filtering happens in the main query.
+    let semIds: number[] = [];
     try {
       if (await hasEmbeddings(userId)) {
         const queryEmbedding = await generateEmbedding(q);
         const vectorResult = await db.execute({
-          sql: `SELECT re.repo_id
+          sql: `SELECT re.repo_id,
+                       vector_distance_cos(re.embedding, vector(?)) AS dist
                 FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
-                JOIN repo_embeddings re ON re.rowid = vt.id`,
-          args: [JSON.stringify(queryEmbedding), 200],
+                JOIN repo_embeddings re ON re.rowid = vt.id
+                ORDER BY dist ASC`,
+          args: [
+            JSON.stringify(queryEmbedding),
+            JSON.stringify(queryEmbedding),
+            VEC_TOP_K,
+          ],
         });
-        semanticIds = vectorResult.rows.map((r) => r.repo_id as number);
+        semIds = vectorResult.rows
+          .filter((r) => (r.dist as number) <= VEC_DIST_MAX)
+          .map((r) => r.repo_id as number);
       }
     } catch (e) {
       console.warn("Semantic search failed:", e);
     }
 
-    // 3. Merge: exact first, then semantic (deduped)
-    const exactSet = new Set(exactIds);
-    const merged = [...exactIds, ...semanticIds.filter((id) => !exactSet.has(id))];
+    // 3. RRF fusion of the two ranked lists.
+    const fused = rrfFuse([lexIds, semIds], RRF_K);
 
-    if (merged.length > 0) {
-      rankedRepoIds = merged;
-      const placeholders = merged.map(() => "?").join(", ");
+    if (fused.length > 0) {
+      rankedRepoIds = fused;
+      const placeholders = fused.map(() => "?").join(", ");
       whereClauses.push(`r.id IN (${placeholders})`);
-      whereArgs.push(...merged);
+      whereArgs.push(...fused);
     } else {
-      // No matches at all — still use LIKE so SQL doesn't return everything
-      whereClauses.push("(r.name LIKE ? OR r.full_name LIKE ? OR r.description LIKE ?)");
-      whereArgs.push(pattern, pattern, pattern);
+      // No matches — keep LIKE so we don't return the whole library.
+      whereClauses.push(
+        "(r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.tags LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)"
+      );
+      whereArgs.push(pattern, pattern, pattern, pattern, pattern, pattern);
     }
   }
 

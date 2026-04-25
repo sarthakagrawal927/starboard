@@ -1,5 +1,3 @@
-const GATEWAY_URL = process.env.AI_GATEWAY_URL!;
-const GATEWAY_KEY = process.env.AI_GATEWAY_API_KEY!;
 const EMBEDDING_MODEL = "@cf/baai/bge-base-en-v1.5";
 const EMBEDDING_DIM = 768;
 const BATCH_SIZE = 50;
@@ -8,7 +6,60 @@ interface EmbeddingResponse {
   data: { embedding: number[]; index: number }[];
 }
 
+interface AiBinding {
+  run(model: string, input: { text: string[] }): Promise<{ data: number[][] }>;
+}
+
 export { EMBEDDING_DIM };
+
+/**
+ * In Workers context (opennext), pull the direct AI binding.
+ * Returns null when running in Node CLI (e.g. seed scripts) — caller falls
+ * back to the HTTP gateway path.
+ */
+async function getAiBinding(): Promise<AiBinding | null> {
+  try {
+    const mod = await import("@opennextjs/cloudflare");
+    const ctx = mod.getCloudflareContext();
+    return (ctx.env as { AI?: AiBinding }).AI ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function embedViaBinding(
+  ai: AiBinding,
+  texts: string[]
+): Promise<number[][]> {
+  const res = await ai.run(EMBEDDING_MODEL, { text: texts });
+  return res.data;
+}
+
+async function embedViaHttp(texts: string[]): Promise<number[][]> {
+  const url = process.env.AI_GATEWAY_URL;
+  const key = process.env.AI_GATEWAY_API_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "No AI binding available and AI_GATEWAY_URL/AI_GATEWAY_API_KEY not set"
+    );
+  }
+  const res = await fetch(`${url}/v1/embeddings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "x-gateway-project-id": "starboard",
+    },
+    body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
+  });
+  if (!res.ok) {
+    throw new Error(`Embedding API error ${res.status}: ${await res.text()}`);
+  }
+  const json: EmbeddingResponse = await res.json();
+  const out: number[][] = new Array(texts.length);
+  for (const item of json.data) out[item.index] = item.embedding;
+  return out;
+}
 
 /** Build the text we embed for a repo — cheap, no extra API calls. */
 export function buildRepoEmbeddingText(repo: {
@@ -35,34 +86,26 @@ export function textHash(text: string): string {
   return h.toString(36);
 }
 
-/** Generate embeddings for one or more texts via the AI gateway. */
+/**
+ * Generate embeddings for one or more texts.
+ * Prefers the direct CF Workers AI binding (when running inside a Worker via
+ * opennext); falls back to the AI Gateway HTTP path otherwise (Node CLI scripts).
+ */
 export async function generateEmbeddings(
   texts: string[]
 ): Promise<number[][]> {
   if (texts.length === 0) return [];
 
+  const ai = await getAiBinding();
   const results: number[][] = new Array(texts.length);
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
-    const res = await fetch(`${GATEWAY_URL}/v1/embeddings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_KEY}`,
-        "x-gateway-project-id": "starboard",
-      },
-      body: JSON.stringify({ model: EMBEDDING_MODEL, input: batch }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Embedding API error ${res.status}: ${body}`);
-    }
-
-    const json: EmbeddingResponse = await res.json();
-    for (const item of json.data) {
-      results[i + item.index] = item.embedding;
+    const embeddings = ai
+      ? await embedViaBinding(ai, batch)
+      : await embedViaHttp(batch);
+    for (let j = 0; j < embeddings.length; j++) {
+      results[i + j] = embeddings[j];
     }
   }
 
@@ -75,17 +118,31 @@ const embeddingCache = new Map<string, number[]>();
 
 /** Convenience: embed a single text (e.g. a search query). Cached. */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const cached = embeddingCache.get(text);
+  const key = text.trim().toLowerCase();
+  const cached = embeddingCache.get(key);
   if (cached) return cached;
 
-  const [embedding] = await generateEmbeddings([text]);
+  const [embedding] = await generateEmbeddings([key]);
 
   // Evict oldest if at capacity
   if (embeddingCache.size >= CACHE_MAX) {
     const oldest = embeddingCache.keys().next().value!;
     embeddingCache.delete(oldest);
   }
-  embeddingCache.set(text, embedding);
+  embeddingCache.set(key, embedding);
 
   return embedding;
+}
+
+/** Cosine similarity for two equal-length vectors. */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }

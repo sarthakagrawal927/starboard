@@ -103,4 +103,62 @@ describe.skipIf(!hasEnv)("semantic search (integration)", () => {
       });
     }
   });
+
+  describe("similar repos (seeded by repo embedding)", () => {
+    it("vector_extract returns JSON-parseable string for stored embedding", async () => {
+      const seed = await db.execute(
+        "SELECT repo_id, vector_extract(embedding) AS vec FROM repo_embeddings LIMIT 1"
+      );
+      expect(seed.rows.length).toBe(1);
+      const vec = seed.rows[0]!.vec as string;
+      expect(typeof vec).toBe("string");
+      const parsed = JSON.parse(vec);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed.length).toBe(768);
+    });
+
+    it("ANN query seeded by stored embedding excludes self and orders by distance", async () => {
+      const seed = await db.execute(
+        "SELECT repo_id, vector_extract(embedding) AS vec FROM repo_embeddings LIMIT 1"
+      );
+      const repoId = seed.rows[0]!.repo_id as number;
+      const vec = seed.rows[0]!.vec as string;
+
+      const ann = await db.execute({
+        sql: `SELECT re.repo_id, vector_distance_cos(re.embedding, vector(?)) AS dist
+              FROM vector_top_k('idx_repo_embeddings_vec', vector(?), 20) AS vt
+              JOIN repo_embeddings re ON re.rowid = vt.id
+              WHERE re.repo_id != ?
+              ORDER BY dist ASC`,
+        args: [vec, vec, repoId],
+      });
+
+      expect(ann.rows.length).toBeGreaterThan(0);
+      expect(ann.rows.every((r) => (r.repo_id as number) !== repoId)).toBe(true);
+
+      const dists = ann.rows.map((r) => r.dist as number);
+      const sorted = [...dists].sort((a, b) => a - b);
+      expect(dists).toEqual(sorted);
+    });
+  });
+
+  describe("lexical search (NOCASE + expanded columns)", () => {
+    it("LIKE COLLATE NOCASE matches across case", async () => {
+      const userResult = await db.execute("SELECT user_id FROM user_repos LIMIT 1");
+      if (userResult.rows.length === 0) return;
+      const userId = userResult.rows[0]!.user_id as string;
+
+      const lower = await db.execute({
+        sql: `SELECT COUNT(*) as c FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
+              WHERE ur.user_id = ? AND r.name LIKE ? COLLATE NOCASE`,
+        args: [userId, "%a%"],
+      });
+      const upper = await db.execute({
+        sql: `SELECT COUNT(*) as c FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
+              WHERE ur.user_id = ? AND r.name LIKE ? COLLATE NOCASE`,
+        args: [userId, "%A%"],
+      });
+      expect(lower.rows[0]!.c).toBe(upper.rows[0]!.c);
+    });
+  });
 });
