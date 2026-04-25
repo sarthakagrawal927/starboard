@@ -1,0 +1,28 @@
+// Cloudflare Workers config for opennextjs-cloudflare deploy.
+// Run `pnpm deploy:cf` to publish.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "starboard",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-04-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Workers AI binding — replaces the AI Gateway HTTP layer for embeddings.
+  // The seed-popular GH Action still uses HTTP since it runs in Node.
+  "ai": {
+    "binding": "AI"
+  },
+  // Set non-secret values here. Secrets go via `wrangler secret put`:
+  //   AUTH_SECRET, AUTH_GITHUB_ID, AUTH_GITHUB_SECRET,
+  //   TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+  // AI_GATEWAY_URL/KEY only needed if you want to keep the gateway path active.
+  "vars": {
+    "NEXT_PUBLIC_APP_NAME": "starboard"
+  }
+}
