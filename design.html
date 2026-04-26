@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Community OS | The Architectural Ledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#713700",
+                    "secondary-fixed-dim": "#bec4f2",
+                    "on-tertiary-fixed": "#301400",
+                    "primary": "#bac3ff",
+                    "tertiary": "#ffb784",
+                    "surface-container-highest": "#34343b",
+                    "on-primary": "#08218a",
+                    "surface": "#121319",
+                    "on-error": "#690005",
+                    "on-secondary": "#272e53",
+                    "tertiary-fixed-dim": "#ffb784",
+                    "surface-variant": "#34343b",
+                    "on-secondary-fixed": "#12183d",
+                    "surface-dim": "#121319",
+                    "surface-container-high": "#292930",
+                    "error-container": "#93000a",
+                    "surface-container-lowest": "#0d0e14",
+                    "primary-container": "#3f51b5",
+                    "on-secondary-fixed-variant": "#3e446b",
+                    "outline-variant": "#454652",
+                    "surface-container-low": "#1a1b22",
+                    "inverse-surface": "#e3e1ea",
+                    "inverse-on-surface": "#2f3037",
+                    "on-primary-container": "#cacfff",
+                    "primary-fixed-dim": "#bac3ff",
+                    "inverse-primary": "#4355b9",
+                    "outline": "#8f909e",
+                    "surface-tint": "#bac3ff",
+                    "surface-container": "#1f1f26",
+                    "on-tertiary-container": "#ffc7a2",
+                    "secondary-fixed": "#dee0ff",
+                    "on-tertiary": "#502500",
+                    "primary-fixed": "#dee0ff",
+                    "surface-bright": "#383940",
+                    "error": "#ffb4ab",
+                    "secondary": "#bec4f2",
+                    "on-surface-variant": "#c5c5d4",
+                    "tertiary-fixed": "#ffdcc6",
+                    "on-background": "#e3e1ea",
+                    "on-surface": "#e3e1ea",
+                    "on-primary-fixed": "#00105c",
+                    "secondary-container": "#3e446b",
+                    "on-primary-fixed-variant": "#293ca0",
+                    "on-secondary-container": "#adb2df",
+                    "on-error-container": "#ffdad6",
+                    "background": "#121319",
+                    "tertiary-container": "#8f4700"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "display": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #121319;
+            color: #E3E1EA;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface overflow-x-hidden">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 bg-[#121319]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(8,33,138,0.08)]">
+<div class="flex justify-between items-center px-6 h-20 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#BAC3FF]" data-icon="grid_view">grid_view</span>
+<h1 class="text-2xl font-bold tracking-tighter text-[#BAC3FF] font-['Manrope']">Community OS</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a professional woman with a minimalist aesthetic and soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUNInEFxXNBb0YLiix40ex06HCf8lffvBx6YC-sexqVZbEuad7jHfWAs_E3D3ecK-4qryvywXTeJuJQVCq2uQnCjZTEr3Tmf5wzU0StEC3P_eZxQpIP6kBk42R8swrgR_46n5rbc5AqCwbVUeZa05oaLzbPTijhBS7GnIBxFpS_Ppcm_UCOr8PFtkZYArKorMuMg08qV8ScOsRUCkKZ6m_MIOWG1228Lv3RVmfSsHLwLZ8umgDQCwFaTl30On6Y7r7GkRhRB1_Rq0"/>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-20 px-6">
+<!-- Hero Section -->
+<section class="py-12 flex flex-col items-start gap-6">
+<span class="bg-primary-container/20 text-primary px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold">The Architectural Ledger</span>
+<h2 class="text-5xl font-extrabold tracking-tighter leading-[0.95] font-headline text-on-surface">
+                Architecting the Future of Community
+            </h2>
+<p class="text-on-surface-variant text-lg leading-relaxed max-w-md">
+                A digital sanctuary built for structured, authoritative, and breathable interaction. Experience the pulse of your collective.
+            </p>
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold px-8 py-4 rounded-lg shadow-xl active:scale-95 transition-transform">
+                Join the Network
+            </button>
+</section>
+<!-- Bento Pulse Section (Community Feeds) -->
+<section class="py-10">
+<div class="flex items-center justify-between mb-8">
+<h3 class="text-2xl font-bold tracking-tight font-headline">Pulse of the Community</h3>
+<span class="text-primary text-sm font-semibold">View All</span>
+</div>
+<div class="grid grid-cols-1 gap-6">
+<!-- Activity Card 1 -->
+<div class="bg-surface-container-low rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-lg overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a creative professional male in a clean studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRVmu6vMXxZfGDtD1cvVzWwdVVattT4V-GdUobngA7DcHckC0vGJSSBENT7XEyorIP_EcJIDqpRrHOdypW22PQAGp14niSorvaU7hQf2JuRppCxQ6Vh8rVgNjaamESLybS_vUuwX9p3L24YR0LeqtVPoRoZ4m-UIXzj_veJRTeSxVxawc1quAZTqc5GBmQrcSUsRcPctW943fWhEXve3VNbk0ZL_hQFxNU-KbnFj56SHO1-853_WJ-0fKRqoReLROcg0SRQQe4sDw"/>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Marcus Thorne</p>
+<p class="text-xs text-on-surface-variant">2 hours ago in #architecture</p>
+</div>
+</div>
+<p class="text-on-surface leading-relaxed mb-4">
+                        Just published the initial schematic for the new Decentralized Hub. The core focus is on modularity and user agency.
+                    </p>
+<div class="bg-surface-container-lowest rounded-lg p-4 border border-outline-variant/10">
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="chat_bubble">chat_bubble</span> 24</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="favorite">favorite</span> 156</span>
+</div>
+<span class="material-symbols-outlined text-sm" data-icon="share">share</span>
+</div>
+</div>
+</div>
+<!-- Activity Card 2 (Image Focused) -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden">
+<div class="h-48 w-full relative">
+<img class="w-full h-full object-cover" data-alt="Wide shot of a modern minimalist office space with concrete walls and warm interior lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoh5MFIQB9Lq-GTpqRmi3dtPg7ihkN6ZiO-n9xl-fA50rDKAqx9qx7qPr4ZkH1k1BZaTly_dTWftoAKXO2BZ4zXVGjYaTvIvJmxoodWEKZHxLHHmFMHdT6JW-vItFOnuYNCkinth4sNCMkkW8uxZfBCkj9bJrCimkevXuAv5i5q8UARBudhf6g3Wxhyycfmb_ocXT4LkSPHWrOT5VfyyQrt9uuj7dh6QoqyhiwKGEmQ3Ce7nNeJYwGpOqcQAvfxF76Ve7lI1qhjxE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+</div>
+<div class="p-6 pt-0 -mt-6 relative z-10">
+<h4 class="text-lg font-bold mb-2">New Workspace Reveal</h4>
+<p class="text-sm text-on-surface-variant mb-4">The Collective has officially opened the Tokyo Node. Architecture led by Kengo Kuma Associates.</p>
+<div class="flex -space-x-2">
+<img class="w-8 h-8 rounded-full border-2 border-surface" data-alt="Close up avatar of a person" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkhxnd2OiifyMlduy1Dp-1m9pKYGqbY4GJI5VXkmnnVE5MUWpBNIpH6d1veMQ9BFL184lYUcxfIqSohaRGdIKHhEWPtGkn1J3neHhl5p5FfxJBial5p3-yfswH8Yb09ghTFdpv9h3cIji0z7GrT9fJUWQXT5mXqrt7TtPL-FbjJWG_71NOIuz_6vgSCCjH5P-ebYit-bkfblsJou7VQPLCBFQnu5BPDTrveKEATkusCECFWbZEFIXlI8tg-bmORRnfF9om-pX6bAQ"/>
+<img class="w-8 h-8 rounded-full border-2 border-surface" data-alt="Close up avatar of a person" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB85zGxO7ZQ-HbahiA2v86sInoJXkQuvYOdem5dfGnl6-Z_YHwe5sAo9CaAcgeqDZlYLpU7uiTbc2gM7WmWOjxXoCkJv5N-fDVuj5BBrGrd4nMipTifhyOQYaghlagdpetqkpT6yU7rpoda7ndMg_YZJoo7qR0D-BGkC4IU3GbPp3_B1DiHkbU7SRyUBOpGNm1s_X5sAe47kSSaCn0S8YDoypfbQHSD_EfcNJqcwJcQjzBsiYH_zQiw2aqCrF8WEd_ze5bKek2fsj4"/>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest flex items-center justify-center text-[10px] font-bold">+12</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Events Section -->
+<section class="py-10">
+<div class="flex items-center justify-between mb-8">
+<h3 class="text-2xl font-bold tracking-tight font-headline">Upcoming Interactions</h3>
+</div>
+<div class="space-y-4">
+<!-- Event 1 -->
+<div class="flex gap-6 items-center p-4 bg-surface-container-low rounded-xl">
+<div class="flex flex-col items-center justify-center min-w-[64px] h-16 bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-bold uppercase">OCT</span>
+<span class="text-xl font-black text-primary">24</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-bold text-on-surface">Global Governance Sync</h4>
+<p class="text-xs text-on-surface-variant">Virtual • 18:00 UTC</p>
+</div>
+<button class="bg-surface-container-highest text-primary-fixed-dim text-xs font-bold px-4 py-2 rounded-lg">Join</button>
+</div>
+<!-- Event 2 -->
+<div class="flex gap-6 items-center p-4 bg-surface-container-low rounded-xl">
+<div class="flex flex-col items-center justify-center min-w-[64px] h-16 bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-bold uppercase">OCT</span>
+<span class="text-xl font-black text-primary">27</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-bold text-on-surface">Digital Sanctuary Workshop</h4>
+<p class="text-xs text-on-surface-variant">Hybrid • 14:00 UTC</p>
+</div>
+<button class="bg-surface-container-highest text-primary-fixed-dim text-xs font-bold px-4 py-2 rounded-lg">Join</button>
+</div>
+<!-- Event 3 -->
+<div class="flex gap-6 items-center p-4 bg-surface-container-low rounded-xl">
+<div class="flex flex-col items-center justify-center min-w-[64px] h-16 bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+<span class="text-xs text-on-surface-variant font-bold uppercase">NOV</span>
+<span class="text-xl font-black text-primary">02</span>
+</div>
+<div class="flex-grow">
+<h4 class="font-bold text-on-surface">Community OS Keynote</h4>
+<p class="text-xs text-on-surface-variant">Live from NYC • 10:00 UTC</p>
+</div>
+<button class="bg-primary-container text-on-primary-container text-xs font-bold px-4 py-2 rounded-lg">Join</button>
+</div>
+</div>
+</section>
+<!-- Member Directory Section -->
+<section class="py-10">
+<div class="flex items-center justify-between mb-8">
+<h3 class="text-2xl font-bold tracking-tight font-headline">Collective Minds</h3>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="search">search</span>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<!-- Profile 1 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<img class="w-14 h-14 rounded-full object-cover" data-alt="Headshot of a man with minimalist style and clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9XlkSO3YsCymcftANSRr4DkMWQYt_GrGZmpzHyl8lne7H72ThLqfoagHrfxT-QqY5CeqLr7WgaaqUpHe9hfqfdVnnBN9D4g3oGBnmRR1C9J0YNEOiC65SnySY7EyCDGZH_K6fWIwBDfX-WYp92e4b-h-AvL_UIz4ZlKvy3ZSU941XaW7-CDq1RbqbvXIIlwqVJISBEsY_T5XRpAhwpHpeAkMVLd4ECGMDNDg78DqfBDUA5KElbkyLJWZ-tMbQ5nbm7zE7Qahs06E"/>
+<span class="text-[10px] font-semibold text-center leading-tight">Julian<br/>Voss</span>
+</div>
+<!-- Profile 2 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<img class="w-14 h-14 rounded-full object-cover" data-alt="Portrait of a smiling woman with soft golden hour lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB50BCL4L0RBlR9Rhypbw-CxyNLUA_xhgls3qEChjp0pNujsgVlVje12WoDLn-KixuZKqDCnoBlS9uvHSGvWLtsMp2rPTHwaFvYQFL6Ifa2NzsRkUeWPI20uhKwXAEuAsK5IL-StLE6UIKY70eo2JEYZe1H6Cc_5tHIeCS_zfdBUGBgmwvGmbkOoxR4K2qfZybCYzh8PQpIGrOoheyR9VmAAnrdhDw_QdRrMc8ddbP-CD7PQKnYKU2DNoSz726GC0-_GK0GSa66OLo"/>
+<span class="text-[10px] font-semibold text-center leading-tight">Sarah<br/>Lund</span>
+</div>
+<!-- Profile 3 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<img class="w-14 h-14 rounded-full object-cover" data-alt="Professional man with beard in a contemporary architectural setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlz8-nGojFkuiZRc1--Dxfa_jNaFSfzYz6JXR98RkLrkPfEk5zVfeRx-nHCh0wtDPMmEIYEN6-1txLCNoyo0Ql7cU6U78l0zp5ZPF0r9hnR_fHWyLvphxfMQ7rEL-qCFDWQCn_RrhaH29kMbPjGJoP7dFd9OBlHljLWFq7ljJyGKyyirKkXd-t79-vCxOCgmVqJTLhnjNdCnW08aKBe_p_axaeLKhB2cX1SG8Kb7lCsYrpwBmh5IsuvwuV9Mfa0sIPf-IuBWy2jFE"/>
+<span class="text-[10px] font-semibold text-center leading-tight">Elias<br/>Gray</span>
+</div>
+<!-- Profile 4 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<img class="w-14 h-14 rounded-full object-cover" data-alt="Confident woman in business attire with blurred office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQqNLpT2tFSmTmwgSZWKqjS6CkyIYltUnRMspSgAT1B5sC2ER3hhL2oesI4siYYejzpYdArLlmCMzfwPh1SQEWf9Sqzusp6tcwXurc0NuEr3ZANOOWAu_CfDEyC8iXWMthkTt2iqqVttvlEXlK7K7UVfud6MB9g7KySGMpmaqeipJvDcdPsz-RPGd1FCh41eKcdc1hBI9UqXbkNCRXi7hZr0rK3VP8iILkm8vpA4TlUUpkfJlwjLyRbIXT402hDxQMo7YMScKedRE"/>
+<span class="text-[10px] font-semibold text-center leading-tight">Maya<br/>Chen</span>
+</div>
+<!-- Profile 5 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<img class="w-14 h-14 rounded-full object-cover" data-alt="Close up of a man looking thoughtful in soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDmbYAK3eTRpVyHjR9bdT2NND0Sz8DGV2v6kdRalVTaPpu8HmW4A2W_Yrfua04to0RPKE7YYU2iIAPXiWWfpQNNKWYXC94RzTMYuVV4QSSf891i_P9uAyLmWWrgbeZwurKOttaK7IVIMrZBlvyc9SOAa9gla0Sen-T7UWM02v7IDYwXO0kb48VRMj_FBFit0Ub589uiK6oU1HKHfdsnQ-CgcuORm0j3lQGUyy5Dqf2hxYGIj9bqLsN43so1Mt-H6pEQn5VcaQSfK4"/>
+<span class="text-[10px] font-semibold text-center leading-tight">David<br/>Okoro</span>
+</div>
+<!-- Profile 6 -->
+<div class="flex flex-col items-center gap-2 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/5">
+<div class="w-14 h-14 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</div>
+<span class="text-[10px] font-semibold text-center leading-tight text-on-surface-variant">View<br/>All</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 bg-gradient-to-t from-[#0D0E14] to-[#121319] px-6 pb-24">
+<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-4">
+<h5 class="font-['Manrope'] font-black text-[#BAC3FF] text-xl">Community OS</h5>
+<p class="text-[#C5C5D4] font-['Inter'] text-sm leading-relaxed">
+                    © 2024 Community OS. The Architectural Ledger. All rights reserved for the decentralized collective.
+                </p>
+</div>
+<div class="flex flex-wrap gap-x-6 gap-y-2 text-[#C5C5D4] font-['Inter'] text-sm">
+<a class="hover:text-[#3F51B5] transition-colors" href="#">Privacy</a>
+<a class="hover:text-[#3F51B5] transition-colors" href="#">Terms</a>
+<a class="hover:text-[#3F51B5] transition-colors text-[#BAC3FF] underline underline-offset-4" href="#">API</a>
+<a class="hover:text-[#3F51B5] transition-colors" href="#">Support</a>
+</div>
+</div>
+</footer>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-[#121319] shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:hidden">
+<div class="flex justify-around items-center h-16 px-4">
+<div class="flex flex-col items-center justify-center bg-[#3F51B5] text-[#CACFFF] rounded-xl px-4 py-1 transition-all cubic-bezier(0.4,0,0.2,1)">
+<span class="material-symbols-outlined" data-icon="dynamic_feed">dynamic_feed</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-0.5">Feed</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#C5C5D4] hover:bg-[#34343B] rounded-xl px-2 py-1 transition-all">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-0.5">Events</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#C5C5D4] hover:bg-[#34343B] rounded-xl px-2 py-1 transition-all">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-0.5">Members</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#C5C5D4] hover:bg-[#34343B] rounded-xl px-2 py-1 transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-0.5">Settings</span>
+</div>
+</div>
+</nav>
+</body></html>
