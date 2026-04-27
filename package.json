@@ -20,10 +20,10 @@
   },
   "dependencies": {
     "@libsql/client": "0.17.3",
-    "@saas-maker/changelog-widget": "workspace:*",
-    "@saas-maker/feedback": "workspace:*",
-    "@saas-maker/sdk": "workspace:*",
-    "@saas-maker/testimonials": "workspace:*",
+    "@saas-maker/changelog-widget": "^0.2.1",
+    "@saas-maker/feedback": "^0.2.1",
+    "@saas-maker/sdk": "^0.3.1",
+    "@saas-maker/testimonials": "^0.2.1",
     "@tanstack/react-virtual": "3.13.24",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -41,9 +41,9 @@
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "1.19.4",
-    "@saas-maker/eslint-config": "workspace:*",
-    "@saas-maker/prettier-config": "workspace:*",
-    "@saas-maker/tsconfig": "workspace:*",
+    "@saas-maker/eslint-config": "^1.0.4",
+    "@saas-maker/prettier-config": "^1.0.0",
+    "@saas-maker/tsconfig": "^1.0.0",
     "@tailwindcss/postcss": "4",
     "@types/node": "25.6.0",
     "@types/react": "19",
@@ -59,5 +59,10 @@
     "vitest": "4.1.5",
     "wrangler": "4.85.0"
   },
-  "prettier": "@saas-maker/prettier-config"
+  "prettier": "@saas-maker/prettier-config",
+  "pnpm": {
+    "patchedDependencies": {
+      "eslint-plugin-react@7.37.5": "patches/eslint-plugin-react@7.37.5.patch"
+    }
+  }
 }
