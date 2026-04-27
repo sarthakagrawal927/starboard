@@ -1,0 +1,5 @@
+Contact: mailto:sarthakagrawal927@gmail.com
+Expires: 2027-04-27T00:00:00Z
+Preferred-Languages: en
+Acknowledgments: https://github.com/sarthakagrawal927
+Canonical: https://starboard.sarthakagrawal927.workers.dev/.well-known/security.txt
