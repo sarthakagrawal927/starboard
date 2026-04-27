@@ -1,0 +1,10 @@
+name: CI
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  foundry-ci:
+    uses: sarthakagrawal927/saas-maker/.github/workflows/foundry-ci.yml@main
