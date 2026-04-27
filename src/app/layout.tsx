@@ -1,6 +1,8 @@
+import "./globals.css";
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+
 import { Providers } from "@/components/providers";
 import { SaaSMakerFeedback } from "@/components/saasmaker-feedback";
 import { SaasMakerAnalytics } from "@/components/SaasMakerAnalytics";

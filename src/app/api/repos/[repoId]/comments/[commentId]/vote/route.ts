@@ -1,7 +1,8 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { NextResponse, type NextRequest } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { type NextRequest,NextResponse } from "next/server";
+
+import { db } from "@/db";
+import { auth } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,

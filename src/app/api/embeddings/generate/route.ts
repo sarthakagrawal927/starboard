@@ -1,13 +1,14 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import {
-  buildRepoEmbeddingText,
-  textHash,
-  generateEmbeddings,
-} from "@/lib/embeddings";
-import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { NextResponse } from "next/server";
+
+import { db } from "@/db";
+import { auth } from "@/lib/auth";
+import {
+  buildRepoEmbeddingText,
+  generateEmbeddings,
+  textHash,
+} from "@/lib/embeddings";
 
 // Prevent concurrent runs per user
 const activeJobs = new Set<string>();

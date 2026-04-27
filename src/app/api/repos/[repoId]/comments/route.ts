@@ -1,7 +1,8 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { NextResponse, type NextRequest } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { type NextRequest,NextResponse } from "next/server";
+
+import { db } from "@/db";
+import { auth } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -53,7 +54,7 @@ export async function GET(
     }
 
     // Fetch user's own votes if authenticated
-    let userVoteMap = new Map<number, 1 | -1>();
+    const userVoteMap = new Map<number, 1 | -1>();
     if (userId) {
       const userVotesResult = await db.execute({
         sql: `SELECT cv.comment_id, cv.value

@@ -1,15 +1,16 @@
-import { auth } from "@/lib/auth";
+import type { InStatement } from "@libsql/client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { NextResponse } from "next/server";
+
 import { db } from "@/db";
+import { auth } from "@/lib/auth";
+import { buildRepoEmbeddingText, generateEmbeddings,textHash } from "@/lib/embeddings";
 import { fetchAllStarredRepos } from "@/lib/github";
 import {
   fetchPublicStarListRepoNames,
   fetchPublicStarLists,
   type GitHubStarList,
 } from "@/lib/github-lists";
-import { buildRepoEmbeddingText, textHash, generateEmbeddings } from "@/lib/embeddings";
-import { NextResponse } from "next/server";
-import type { InStatement } from "@libsql/client";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const BOGUS_IMPORTED_SORT_LISTS = new Set([
   "name ascending (a-z)",
