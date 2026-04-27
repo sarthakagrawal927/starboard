@@ -7,6 +7,7 @@ import {
 } from "@/lib/embeddings";
 import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // Prevent concurrent runs per user
 const activeJobs = new Set<string>();
@@ -18,6 +19,12 @@ export async function POST() {
   }
 
   const userId = session.user.githubId;
+
+  const { env } = await getCloudflareContext();
+  const { success } = await env.RATE_LIMITER.limit({ key: userId });
+  if (!success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   if (activeJobs.has(userId)) {
     return NextResponse.json({ skipped: true, reason: "already running" });

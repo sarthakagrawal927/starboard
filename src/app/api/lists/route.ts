@@ -23,8 +23,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { name, color, icon } = await request.json();
-  if (!name || typeof name !== "string") {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+  if (!name || typeof name !== "string" || name.trim().length === 0 || name.length > 100) {
+    return NextResponse.json({ error: "name must be a non-empty string (max 100 chars)" }, { status: 400 });
+  }
+  if (color !== undefined && (typeof color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(color))) {
+    return NextResponse.json({ error: "color must be a valid hex color (e.g. #6366f1)" }, { status: 400 });
   }
 
   const posResult = await db.execute({

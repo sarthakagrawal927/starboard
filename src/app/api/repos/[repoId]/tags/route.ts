@@ -36,8 +36,15 @@ export async function PUT(
   const { repoId } = await params;
   const { tags } = await request.json();
 
-  if (!Array.isArray(tags) || !tags.every((t: unknown) => typeof t === "string")) {
-    return NextResponse.json({ error: "tags must be an array of strings" }, { status: 400 });
+  if (
+    !Array.isArray(tags) ||
+    tags.length > 50 ||
+    !tags.every((t: unknown) => typeof t === "string" && t.length > 0 && t.length <= 100)
+  ) {
+    return NextResponse.json(
+      { error: "tags must be an array of up to 50 non-empty strings (max 100 chars each)" },
+      { status: 400 }
+    );
   }
 
   await db.execute({

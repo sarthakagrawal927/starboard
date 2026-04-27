@@ -9,6 +9,7 @@ import {
 import { buildRepoEmbeddingText, textHash, generateEmbeddings } from "@/lib/embeddings";
 import { NextResponse } from "next/server";
 import type { InStatement } from "@libsql/client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const BOGUS_IMPORTED_SORT_LISTS = new Set([
   "name ascending (a-z)",
@@ -32,6 +33,12 @@ export async function POST() {
   }
 
   const userId = session.user.githubId;
+
+  const { env } = await getCloudflareContext();
+  const { success } = await env.RATE_LIMITER.limit({ key: userId });
+  if (!success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   try {
     const username = await getGitHubUsername(userId);

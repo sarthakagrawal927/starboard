@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { NextResponse, type NextRequest } from "next/server";
 import type { InStatement } from "@libsql/client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function POST(
   _request: NextRequest,
@@ -20,6 +21,12 @@ export async function POST(
   }
 
   const userId = session.user.githubId;
+
+  const { env } = await getCloudflareContext();
+  const { success } = await env.RATE_LIMITER.limit({ key: userId });
+  if (!success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   try {
     // Check if user already liked this repo

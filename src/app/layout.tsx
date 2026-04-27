@@ -30,6 +30,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "globalThis.__name=globalThis.__name||function(t){return t};",
+          }}
+        />
         <Providers>
           {children}
           <SaaSMakerFeedback />

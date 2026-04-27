@@ -35,6 +35,7 @@ export async function fetchAllStarredRepos(
     const headers: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github.v3+json",
+      "User-Agent": "starboard",
     };
 
     // Only send If-None-Match on the first page to check if anything changed
