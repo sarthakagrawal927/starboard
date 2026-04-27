@@ -37,6 +37,8 @@
   //   TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
   // AI_GATEWAY_URL/KEY only needed if you want to keep the gateway path active.
   "vars": {
-    "NEXT_PUBLIC_APP_NAME": "starboard"
+    "NEXT_PUBLIC_APP_NAME": "starboard",
+    "AUTH_URL": "https://starboard.sarthakagrawal927.workers.dev",
+    "NEXTAUTH_URL": "https://starboard.sarthakagrawal927.workers.dev"
   }
 }
