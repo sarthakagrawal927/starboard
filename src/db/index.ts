@@ -1,4 +1,4 @@
-import { createClient, type Client } from "@libsql/client/web";
+import { type Client,createClient } from "@libsql/client/web";
 
 let _client: Client | undefined;
 function getClient(): Client {
