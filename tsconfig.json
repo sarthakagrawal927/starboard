@@ -1,8 +1,3 @@
 {
-  "extends": "@saas-maker/tsconfig/next.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+  "extends": "@saas-maker/tsconfig/next.json"
 }
