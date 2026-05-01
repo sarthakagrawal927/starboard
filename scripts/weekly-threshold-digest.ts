@@ -19,6 +19,7 @@ const STAR_THRESHOLDS = (process.env.STAR_THRESHOLDS || "5000,10000,20000,50000,
   .sort((a, b) => a - b);
 const FASTEST_GROWERS_LIMIT = 20;
 const MAX_REPOS_PER_THRESHOLD = 25;
+const THRESHOLD_BAND_LIMIT = 10;
 
 interface ThresholdEvent {
   threshold: number;
@@ -94,6 +95,52 @@ function groupByThreshold(events: ThresholdEvent[]) {
   return groups;
 }
 
+async function loadThresholdBands(
+  db: ReturnType<typeof createClient>
+): Promise<Map<number, { count: number; repos: TopRepo[] }>> {
+  const bands = new Map<number, { count: number; repos: TopRepo[] }>();
+
+  for (let i = 0; i < STAR_THRESHOLDS.length; i++) {
+    const threshold = STAR_THRESHOLDS[i]!;
+    const nextThreshold = STAR_THRESHOLDS[i + 1];
+    const upperClause =
+      nextThreshold === undefined ? "" : "AND stargazers_count < ?";
+    const args =
+      nextThreshold === undefined
+        ? [threshold, THRESHOLD_BAND_LIMIT]
+        : [threshold, nextThreshold, THRESHOLD_BAND_LIMIT];
+
+    const countResult = await db.execute({
+      sql: `SELECT COUNT(*) AS count
+            FROM repos
+            WHERE stargazers_count >= ?
+            ${nextThreshold === undefined ? "" : "AND stargazers_count < ?"}`,
+      args: nextThreshold === undefined ? [threshold] : [threshold, nextThreshold],
+    });
+    const reposResult = await db.execute({
+      sql: `SELECT
+              full_name,
+              html_url,
+              description,
+              language,
+              stargazers_count AS current_stars
+            FROM repos
+            WHERE stargazers_count >= ?
+            ${upperClause}
+            ORDER BY stargazers_count DESC
+            LIMIT ?`,
+      args,
+    });
+
+    bands.set(threshold, {
+      count: countResult.rows[0]!.count as number,
+      repos: reposResult.rows as unknown as TopRepo[],
+    });
+  }
+
+  return bands;
+}
+
 async function main() {
   if (!process.env.TURSO_DATABASE_URL) {
     throw new Error("TURSO_DATABASE_URL required");
@@ -104,6 +151,7 @@ async function main() {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   const lookback = `-${DIGEST_DAYS} days`;
+  const thresholdBands = await loadThresholdBands(db);
   const corpusCounts = await Promise.all(
     STAR_THRESHOLDS.map(async (threshold) => {
       const result = await db.execute({
@@ -210,9 +258,40 @@ async function main() {
     "",
     ...topRepos.map((repo) => formatTopRepoLine(repo)),
     "",
-    "## Threshold crossings",
+    "## Current threshold bands",
     "",
   ];
+
+  for (let i = 0; i < STAR_THRESHOLDS.length; i++) {
+    const threshold = STAR_THRESHOLDS[i]!;
+    const nextThreshold = STAR_THRESHOLDS[i + 1];
+    const band = thresholdBands.get(threshold);
+    const title =
+      nextThreshold === undefined
+        ? `${formatStars(threshold)}+ stars`
+        : `${formatStars(threshold)}-${formatStars(nextThreshold - 1)} stars`;
+
+    lines.push(`### ${title}`);
+    lines.push("");
+    lines.push(`${formatStars(band?.count ?? 0)} repos in this band.`);
+    lines.push("");
+
+    if (!band || band.repos.length === 0) {
+      lines.push("No repos in this band.");
+      lines.push("");
+      continue;
+    }
+
+    for (const repo of band.repos) {
+      lines.push(formatTopRepoLine(repo));
+    }
+    lines.push("");
+  }
+
+  lines.push(
+    "## Threshold crossings",
+    ""
+  );
 
   for (const [threshold, events] of groupedEvents) {
     lines.push(`### ${formatStars(threshold)} stars`);

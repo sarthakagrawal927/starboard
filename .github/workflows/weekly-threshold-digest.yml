@@ -41,7 +41,7 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
 
       - name: Generate digest
-        run: pnpm weekly:threshold-digest > digest.md
+        run: pnpm --silent weekly:threshold-digest > digest.md
         env:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
