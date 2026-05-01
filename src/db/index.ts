@@ -1,4 +1,4 @@
-import { type Client,createClient } from "@libsql/client/web";
+import { type Client, createClient } from "@libsql/client/web";
 
 let _client: Client | undefined;
 function getClient(): Client {
@@ -13,6 +13,8 @@ function getClient(): Client {
 
 export const db = new Proxy({} as Client, {
   get(_, prop) {
-    return Reflect.get(getClient(), prop);
+    const client = getClient();
+    const value = Reflect.get(client, prop);
+    return typeof value === "function" ? value.bind(client) : value;
   },
 });
