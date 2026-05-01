@@ -13,6 +13,11 @@
 # testing
 /coverage
 
+# local database snapshots
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
+
 # next.js
 /.next/
 /out/
