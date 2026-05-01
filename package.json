@@ -11,6 +11,7 @@
     "db:seed-embeddings": "tsx src/db/seed-embeddings.ts",
     "db:embed-pending": "tsx src/db/seed-embeddings.ts",
     "db:seed-popular": "tsx scripts/seed-popular.ts",
+    "weekly:threshold-digest": "tsx scripts/weekly-threshold-digest.ts",
     "cf:build": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
     "build:cf": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
     "preview:cf": "pnpm build:cf && opennextjs-cloudflare preview",

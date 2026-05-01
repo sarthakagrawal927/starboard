@@ -1,0 +1,74 @@
+name: Weekly threshold digest
+
+on:
+  schedule:
+    - cron: '30 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Days to include in the digest
+        required: false
+        default: '7'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database schema
+        run: pnpm db:migrate
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
+      - name: Generate digest
+        run: pnpm weekly:threshold-digest > digest.md
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          DIGEST_DAYS: ${{ github.event.inputs.days || '7' }}
+
+      - name: Create GitHub issue
+        run: |
+          title="Starboard weekly repo digest - $(date -u +%Y-%m-%d)"
+          existing_issue="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "$title in:title" \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$existing_issue" ]; then
+            gh issue edit "$existing_issue" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --body-file digest.md
+            exit 0
+          fi
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$title" \
+            --body-file digest.md
+        env:
+          GH_TOKEN: ${{ github.token }}

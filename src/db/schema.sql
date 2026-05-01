@@ -94,6 +94,22 @@ CREATE TABLE IF NOT EXISTS repo_embeddings (
 CREATE INDEX IF NOT EXISTS idx_repo_embeddings_vec
   ON repo_embeddings(libsql_vector_idx(embedding, 'metric=cosine'));
 
+CREATE TABLE IF NOT EXISTS repo_star_snapshots (
+  repo_id           INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  stargazers_count INTEGER NOT NULL,
+  captured_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (repo_id, captured_at)
+);
+
+CREATE TABLE IF NOT EXISTS repo_threshold_events (
+  repo_id        INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+  threshold      INTEGER NOT NULL,
+  previous_stars INTEGER,
+  current_stars  INTEGER NOT NULL,
+  crossed_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (repo_id, threshold)
+);
+
 -- Cursor for the daily GH Action that seeds popular repos.
 -- One row, id=1. Walks GH search top-down by star count, resets when the walk
 -- completes so the next run rediscovers newly-eligible repos and refreshes
@@ -109,3 +125,7 @@ INSERT OR IGNORE INTO seed_cursor (id) VALUES (1);
 
 CREATE INDEX IF NOT EXISTS idx_repos_stars ON repos(stargazers_count DESC);
 CREATE INDEX IF NOT EXISTS idx_repos_updated ON repos(repo_updated_at);
+CREATE INDEX IF NOT EXISTS idx_repo_star_snapshots_captured ON repo_star_snapshots(captured_at);
+CREATE INDEX IF NOT EXISTS idx_repo_star_snapshots_repo ON repo_star_snapshots(repo_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_repo_threshold_events_crossed ON repo_threshold_events(crossed_at);
+CREATE INDEX IF NOT EXISTS idx_repo_threshold_events_threshold ON repo_threshold_events(threshold, crossed_at);

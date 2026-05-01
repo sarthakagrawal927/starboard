@@ -21,6 +21,7 @@
  * Optional env:
  *   SEED_DAILY_LIMIT      — embeddings per run, default 1000
  *   MIN_STARS_FLOOR       — minimum stars to seed, default 5000
+ *   STAR_THRESHOLDS       — comma-separated digest thresholds, default 5000,10000,20000,50000,100000
  */
 
 import { type Client, createClient, type InStatement } from "@libsql/client";
@@ -33,6 +34,11 @@ import {
 
 const DAILY_LIMIT = parseInt(process.env.SEED_DAILY_LIMIT || "1000", 10);
 const MIN_STARS_FLOOR = parseInt(process.env.MIN_STARS_FLOOR || "5000", 10);
+const STAR_THRESHOLDS = (process.env.STAR_THRESHOLDS || "5000,10000,20000,50000,100000")
+  .split(",")
+  .map((value) => parseInt(value.trim(), 10))
+  .filter((value) => Number.isFinite(value) && value >= MIN_STARS_FLOOR)
+  .sort((a, b) => a - b);
 const PER_PAGE = 100;
 const MAX_PAGES_PER_BUCKET = 10; // GH search caps at 1000 results
 const BATCH_SIZE = 50;
@@ -95,6 +101,61 @@ function batchDb(db: Client, stmts: InStatement[]) {
   return withDbRetry("batch", () => db.batch(stmts));
 }
 
+async function loadPreviousStarCounts(
+  db: Client,
+  repoIds: number[]
+): Promise<Map<number, number>> {
+  if (repoIds.length === 0) return new Map();
+
+  const result = await executeDb(db, {
+    sql: `SELECT id, stargazers_count FROM repos WHERE id IN (${repoIds
+      .map(() => "?")
+      .join(", ")})`,
+    args: repoIds,
+  });
+
+  return new Map(
+    result.rows.map((row) => [
+      row.id as number,
+      row.stargazers_count as number,
+    ])
+  );
+}
+
+function buildThresholdEventStatements(
+  repos: GhRepo[],
+  previousStarCounts: Map<number, number>
+): InStatement[] {
+  const stmts: InStatement[] = [];
+
+  for (const repo of repos) {
+    const previousStars = previousStarCounts.get(repo.id);
+
+    for (const threshold of STAR_THRESHOLDS) {
+      const crossed =
+        previousStars === undefined
+          ? threshold === MIN_STARS_FLOOR && repo.stargazers_count >= threshold
+          : previousStars < threshold && repo.stargazers_count >= threshold;
+
+      if (!crossed) continue;
+
+      stmts.push({
+        sql: `INSERT OR IGNORE INTO repo_threshold_events
+              (repo_id, threshold, previous_stars, current_stars)
+              VALUES (?, ?, ?, ?)`,
+        args: [
+          repo.id,
+          threshold,
+          previousStars ?? null,
+          repo.stargazers_count,
+        ],
+      });
+    }
+  }
+
+  return stmts;
+}
+
 async function ghSearch(
   q: string,
   page: number,
@@ -124,6 +185,10 @@ async function ghSearch(
 
 async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
   if (repos.length === 0) return [];
+  const previousStarCounts = await loadPreviousStarCounts(
+    db,
+    repos.map((repo) => repo.id)
+  );
   const stmts: InStatement[] = repos.map((r) => ({
     sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url,
             description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
@@ -154,7 +219,17 @@ async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
       r.updated_at,
     ],
   }));
-  await batchDb(db, stmts);
+  const snapshotStmts: InStatement[] = repos.map((repo) => ({
+    sql: `INSERT INTO repo_star_snapshots (repo_id, stargazers_count)
+          VALUES (?, ?)`,
+    args: [repo.id, repo.stargazers_count],
+  }));
+  const thresholdEventStmts = buildThresholdEventStatements(
+    repos,
+    previousStarCounts
+  );
+
+  await batchDb(db, [...stmts, ...snapshotStmts, ...thresholdEventStmts]);
   return repos.map((r) => r.id);
 }
 
@@ -198,7 +273,7 @@ async function embedPending(db: Client, limit: number): Promise<number> {
       args: [item.id, JSON.stringify(embeddings[j]), item.hash],
     }));
     await batchDb(db, stmts);
-    console.log(
+    console.info(
       `  embedded ${i + batch.length}/${toEmbed.length} (${batch.length} this batch)`
     );
   }
@@ -235,7 +310,7 @@ async function saveCursor(db: Client, next_max_stars: number, next_page: number)
  */
 async function walkAndUpsert(db: Client, ghToken: string) {
   const cursor = await loadCursor(db);
-  console.log(
+  console.info(
     `[walk] resume cursor: max_stars=${cursor.next_max_stars} page=${cursor.next_page}`
   );
 
@@ -246,7 +321,7 @@ async function walkAndUpsert(db: Client, ghToken: string) {
 
   while (max_stars >= MIN_STARS_FLOOR) {
     const q = `stars:${MIN_STARS_FLOOR}..${max_stars}`;
-    console.log(`[walk] q="${q}" page=${page}`);
+    console.info(`[walk] q="${q}" page=${page}`);
     const result = await ghSearch(q, page, ghToken);
 
     if (result.items.length === 0) {
@@ -279,7 +354,7 @@ async function walkAndUpsert(db: Client, ghToken: string) {
   // Walk complete. Reset cursor so the next run rediscovers from the top —
   // catches new ≥5k repos and refreshes star counts on existing rows.
   await saveCursor(db, 999999999, 1);
-  console.log(
+  console.info(
     `[walk] complete. upserted ${upsertedThisRun} repo rows. cursor reset.`
   );
 }
@@ -295,9 +370,9 @@ async function main() {
 
   await walkAndUpsert(db, ghToken);
 
-  console.log(`[embed] generating up to ${DAILY_LIMIT} embeddings`);
+  console.info(`[embed] generating up to ${DAILY_LIMIT} embeddings`);
   const embedded = await embedPending(db, DAILY_LIMIT);
-  console.log(`[embed] generated ${embedded} embeddings`);
+  console.info(`[embed] generated ${embedded} embeddings`);
 
   const totals = await executeDb(
     db,
@@ -308,7 +383,7 @@ async function main() {
           WHERE r.stargazers_count >= ${MIN_STARS_FLOOR}) AS embedded_in_pool`
   );
   const t = totals.rows[0]!;
-  console.log(
+  console.info(
     `[done] pool ≥${MIN_STARS_FLOOR} stars: ${t.embedded_in_pool}/${t.repos_in_pool} embedded`
   );
 }
