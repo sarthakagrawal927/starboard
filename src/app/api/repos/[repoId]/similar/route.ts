@@ -3,9 +3,28 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 
-const VEC_TOP_K = 60;
-const DIST_MAX = 0.55;
+const VEC_TOP_K = 200;
+const DIST_MAX = 0.62;
 const DEFAULT_LIMIT = 10;
+
+function parseTopics(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((topic): topic is string => typeof topic === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function wordSet(value: string | null | undefined): Set<string> {
+  return new Set(
+    (value ?? "")
+      .toLowerCase()
+      .split(/[^a-z0-9+#]+/i)
+      .filter((word) => word.length >= 3)
+  );
+}
 
 export async function GET(
   request: NextRequest,
@@ -28,9 +47,17 @@ export async function GET(
   const scope = request.nextUrl.searchParams.get("scope") || "global"; // "user" | "global"
 
   try {
-    // 1. Fetch this repo's embedding.
+    // 1. Fetch this repo's embedding and lightweight metadata.
     const seed = await db.execute({
-      sql: "SELECT embedding FROM repo_embeddings WHERE repo_id = ?",
+      sql: `SELECT re.embedding,
+                   r.name,
+                   r.full_name,
+                   r.description,
+                   r.language,
+                   r.topics
+            FROM repo_embeddings re
+            JOIN repos r ON r.id = re.repo_id
+            WHERE re.repo_id = ?`,
       args: [repoId],
     });
     if (seed.rows.length === 0) {
@@ -77,11 +104,13 @@ export async function GET(
     const sql =
       scope === "global"
         ? `SELECT r.id, r.name, r.full_name, r.owner_login, r.owner_avatar,
-                 r.html_url, r.description, r.language, r.stargazers_count, r.topics
+                 r.html_url, r.description, r.language, r.stargazers_count,
+                 r.archived, r.topics, r.repo_updated_at
            FROM repos r
            WHERE r.id IN (${placeholders})`
         : `SELECT r.id, r.name, r.full_name, r.owner_login, r.owner_avatar,
-                 r.html_url, r.description, r.language, r.stargazers_count, r.topics,
+                 r.html_url, r.description, r.language, r.stargazers_count,
+                 r.archived, r.topics, r.repo_updated_at,
                  ur.list_id,
                  COALESCE((
                    SELECT json_group_array(url.list_id)
@@ -95,14 +124,42 @@ export async function GET(
 
     const hydrated = await db.execute({ sql, args });
 
-    // 4. Re-attach distance, preserve ANN order, slice to limit.
+    // 4. Re-attach distance and rerank. Vector distance stays primary; shared
+    // topics, language, and repo-description terms stabilize close semantic matches.
+    const seedRow = seed.rows[0];
+    const seedTopics = new Set(parseTopics(seedRow.topics));
+    const seedWords = wordSet(
+      `${seedRow.full_name as string} ${seedRow.description as string | null}`
+    );
+    const seedLanguage = (seedRow.language as string | null) ?? null;
     const distMap = new Map(candidates.map((c) => [c.repo_id, c.dist]));
     const repoMap = new Map(hydrated.rows.map((r) => [r.id as number, r]));
     const ordered = ids
       .map((id) => repoMap.get(id))
       .filter((r): r is NonNullable<typeof r> => r != null)
+      .map((row) => {
+        const dist = distMap.get(row.id as number) ?? 1;
+        const similarity = 1 - dist;
+        const topics = parseTopics(row.topics);
+        const sharedTopics = topics.filter((topic) => seedTopics.has(topic)).length;
+        const candidateWords = wordSet(`${row.full_name as string} ${row.description as string | null}`);
+        let sharedWords = 0;
+        for (const word of candidateWords) {
+          if (seedWords.has(word)) sharedWords++;
+        }
+        const languageBoost =
+          seedLanguage && seedLanguage === (row.language as string | null) ? 0.03 : 0;
+        const topicBoost = Math.min(sharedTopics * 0.035, 0.14);
+        const wordBoost = Math.min(sharedWords * 0.008, 0.04);
+        return {
+          row,
+          similarity,
+          score: similarity + languageBoost + topicBoost + wordBoost,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map((row) => ({
+      .map(({ row, similarity }) => ({
         id: row.id as number,
         name: row.name as string,
         full_name: row.full_name as string,
@@ -114,11 +171,13 @@ export async function GET(
         description: row.description as string | null,
         language: row.language as string | null,
         stargazers_count: row.stargazers_count as number,
-        topics: JSON.parse((row.topics as string) || "[]"),
+        archived: Boolean(row.archived),
+        topics: parseTopics(row.topics),
+        updated_at: row.repo_updated_at as string | null,
         list_id: (row.list_id as number | null | undefined) ?? null,
         collection_ids: row.collection_ids ? JSON.parse((row.collection_ids as string) || "[]") : [],
         tags: [],
-        similarity: 1 - (distMap.get(row.id as number) ?? 1),
+        similarity,
       }));
 
     return NextResponse.json({ similar: ordered });

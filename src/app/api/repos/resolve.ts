@@ -9,6 +9,7 @@ interface GitHubRepoResponse {
   description: string | null;
   language: string | null;
   stargazers_count: number;
+  archived?: boolean;
   topics?: string[];
   created_at: string;
   updated_at: string;
@@ -46,14 +47,14 @@ export async function resolveRepoId(
 
   await db.execute({
     sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url,
-            description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            description, language, stargazers_count, archived, topics, repo_created_at, repo_updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             name = excluded.name, full_name = excluded.full_name,
             owner_login = excluded.owner_login, owner_avatar = excluded.owner_avatar,
             html_url = excluded.html_url, description = excluded.description,
             language = excluded.language, stargazers_count = excluded.stargazers_count,
-            topics = excluded.topics, repo_created_at = excluded.repo_created_at,
+            archived = excluded.archived, topics = excluded.topics, repo_created_at = excluded.repo_created_at,
             repo_updated_at = excluded.repo_updated_at`,
     args: [
       gh.id,
@@ -65,6 +66,7 @@ export async function resolveRepoId(
       gh.description ?? null,
       gh.language ?? null,
       gh.stargazers_count,
+      gh.archived ? 1 : 0,
       JSON.stringify(gh.topics ?? []),
       gh.created_at,
       gh.updated_at,

@@ -11,7 +11,8 @@ import type { UserList } from "@/hooks/use-lists";
 import type { UserRepo } from "@/hooks/use-starred-repos";
 
 function widthToColumns(width: number): number {
-  if (width >= 1024) return 3;
+  if (width >= 1080) return 4;
+  if (width >= 820) return 3;
   if (width >= 640) return 2;
   return 1;
 }
@@ -147,7 +148,7 @@ export function RepoGrid({
       <div
         className={
           viewMode === "grid"
-            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             : "flex flex-col gap-2"
         }
       >
@@ -185,7 +186,7 @@ export function RepoGrid({
   }
 
   return (
-    <div ref={parentRef} className={`h-[calc(100svh-65px)] overflow-auto transition-opacity duration-150${isValidating && repos.length > 0 ? " opacity-60" : ""}`}>
+    <div ref={parentRef} className={`h-[calc(100svh-65px)] overflow-auto transition-opacity duration-150${isValidating && repos.length > 0 ? " opacity-85" : ""}`}>
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,

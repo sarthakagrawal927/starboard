@@ -22,6 +22,7 @@ async function migrate() {
     "ALTER TABLE user_lists ADD COLUMN description TEXT",
     "ALTER TABLE user_repos ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE user_repos ADD COLUMN is_saved INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE repos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* column already exists */ }

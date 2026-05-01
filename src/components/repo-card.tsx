@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Star } from "lucide-react";
+import { Archive, Bookmark, Clock3, Star } from "lucide-react";
 import Link from "next/link";
 import { memo } from "react";
 
@@ -50,6 +50,17 @@ function formatStarCount(count: number): string {
   return count.toString();
 }
 
+function formatUpdatedDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  });
+}
+
 interface RepoCardProps {
   repo: UserRepo;
   lists?: UserList[];
@@ -86,6 +97,7 @@ export const RepoCard = memo(function RepoCard({
     />
   );
   const isSaved = Boolean(repo.is_saved);
+  const updatedDate = formatUpdatedDate(repo.updated_at);
   const collectionIds = repo.collection_ids ?? [];
   const saveButton = onToggleSave ? (
     <button
@@ -101,10 +113,10 @@ export const RepoCard = memo(function RepoCard({
 
   if (viewMode === "list") {
     return (
-      <div className="group flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 sm:gap-4 sm:p-4">
+      <div className="group grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:p-4">
         <div className="shrink-0">{avatar}</div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex min-w-0 items-center gap-2">
             <Link
               href={`/explore/${repo.full_name}`}
               className="truncate font-medium text-foreground hover:underline"
@@ -114,33 +126,27 @@ export const RepoCard = memo(function RepoCard({
               </span>
               {repo.name}
             </Link>
-            <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-              {saveButton}
-              {lists && onAssignList && (
-                <ListPicker repoId={repo.id} currentListIds={collectionIds} lists={lists} onAssign={onAssignList} />
-              )}
-              {repo.language && (
-                <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-                  <span
-                    className="inline-block size-2.5 rounded-full"
-                    style={{ backgroundColor: langColor ?? undefined }}
-                  />
-                  {repo.language}
-                </span>
-              )}
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Star className="size-3 fill-current" />
-                {formatStarCount(repo.stargazers_count)}
-              </span>
-            </div>
+            {repo.archived && (
+              <Badge variant="outline" className="hidden shrink-0 gap-1 text-[10px] font-normal uppercase tracking-normal text-muted-foreground sm:inline-flex">
+                <Archive className="size-3" />
+                Archived
+              </Badge>
+            )}
           </div>
           {repo.description && (
-            <p className="mt-1 truncate text-sm text-muted-foreground">
+            <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
               {repo.description}
             </p>
           )}
-          {repo.topics.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-2 flex min-h-5 flex-wrap items-center gap-1.5">
+            {repo.archived && (
+              <Badge variant="outline" className="gap-1 text-[10px] font-normal uppercase tracking-normal text-muted-foreground sm:hidden">
+                <Archive className="size-3" />
+                Archived
+              </Badge>
+            )}
+            {repo.topics.length > 0 && (
+              <>
               {repo.topics.slice(0, 4).map((topic) => (
                 <Badge
                   key={topic}
@@ -150,7 +156,33 @@ export const RepoCard = memo(function RepoCard({
                   {topic}
                 </Badge>
               ))}
-            </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="col-start-2 flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground sm:col-start-auto sm:min-w-64 sm:justify-end sm:gap-3">
+          {repo.language && (
+            <span className="hidden items-center gap-1.5 md:flex">
+              <span
+                className="inline-block size-2.5 rounded-full"
+                style={{ backgroundColor: langColor ?? undefined }}
+              />
+              {repo.language}
+            </span>
+          )}
+          {updatedDate && (
+            <span className="hidden items-center gap-1 lg:flex">
+              <Clock3 className="size-3" />
+              {updatedDate}
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Star className="size-3 fill-current" />
+            {formatStarCount(repo.stargazers_count)}
+          </span>
+          {saveButton}
+          {lists && onAssignList && (
+            <ListPicker repoId={repo.id} currentListIds={collectionIds} lists={lists} onAssign={onAssignList} />
           )}
         </div>
       </div>
@@ -173,6 +205,12 @@ export const RepoCard = memo(function RepoCard({
               {repo.name}
             </span>
           </Link>
+          {repo.archived && (
+            <Badge variant="outline" className="mt-1 inline-flex gap-1 text-[10px] font-normal uppercase tracking-normal text-muted-foreground">
+              <Archive className="size-3" />
+              Archived
+            </Badge>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {saveButton}
@@ -203,7 +241,7 @@ export const RepoCard = memo(function RepoCard({
           </div>
         )}
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {repo.language && (
             <span className="flex items-center gap-1.5">
               <span
@@ -217,6 +255,12 @@ export const RepoCard = memo(function RepoCard({
             <Star className="size-3 fill-current" />
             {formatStarCount(repo.stargazers_count)}
           </span>
+          {updatedDate && (
+            <span className="flex items-center gap-1">
+              <Clock3 className="size-3" />
+              {updatedDate}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import useSWR from "swr";
 import type { Facets, SortOption, UserRepo } from "@/hooks/use-starred-repos";
 
 const sortMap: Record<SortOption, string> = {
+  relevance: "relevance",
   "recently-starred": "stars",
   "most-stars": "stars",
   "recently-updated": "updated",

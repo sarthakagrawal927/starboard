@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDiscoverRepos } from "@/hooks/use-discover-repos";
 import { useLists } from "@/hooks/use-lists";
 
-const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
+const sortOptions = ["relevance", "most-stars", "recently-updated", "name-az"] as const;
 
 function PageSkeleton() {
   return (
@@ -55,7 +55,7 @@ function PageSkeleton() {
         </aside>
 
         <div className="flex-1 p-4 md:p-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex flex-col rounded-lg border bg-card p-4">
                 <div className="flex items-start gap-3">
@@ -109,7 +109,7 @@ function DiscoverContent() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 200);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -198,7 +198,10 @@ function DiscoverContent() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}
-        onSortChange={setSortBy}
+        onSortChange={(sort) => {
+          if (sort !== "recently-starred") setSortBy(sort);
+        }}
+        sortOptions={sortOptions}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onMenuClick={() => setSidebarOpen(true)}

@@ -180,11 +180,15 @@ export async function GET(request: NextRequest) {
   const whereSQL = whereClauses.join(" AND ");
 
   // Sort mapping — use ranked order (exact first, then semantic) with default sort
-  const useRankedOrder = rankedRepoIds && rankedRepoIds.length > 0 && sort === "starred";
+  const useRankedOrder =
+    rankedRepoIds &&
+    rankedRepoIds.length > 0 &&
+    (sort === "relevance" || sort === "starred");
   const orderByMap: Record<string, string> = {
+    relevance: "ur.starred_at DESC",
     starred: "ur.starred_at DESC",
     stars: "r.stargazers_count DESC",
-    updated: "r.repo_updated_at DESC",
+    updated: "r.repo_updated_at DESC, r.stargazers_count DESC",
     name: "r.name ASC",
   };
   let orderBy: string;
@@ -265,6 +269,7 @@ export async function GET(request: NextRequest) {
       description: row.description as string | null,
       language: row.language as string | null,
       stargazers_count: row.stargazers_count as number,
+      archived: Boolean(row.archived),
       topics: JSON.parse((row.topics as string) || "[]"),
       created_at: row.repo_created_at as string,
       updated_at: row.repo_updated_at as string,

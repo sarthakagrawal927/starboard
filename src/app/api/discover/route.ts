@@ -160,10 +160,14 @@ export async function GET(request: NextRequest) {
   }
 
   const whereSQL = whereClauses.join(" AND ");
-  const useRankedOrder = rankedRepoIds && rankedRepoIds.length > 0 && sort === "stars";
+  const useRankedOrder =
+    rankedRepoIds &&
+    rankedRepoIds.length > 0 &&
+    (sort === "relevance" || sort === "stars");
   const orderByMap: Record<string, string> = {
+    relevance: "r.stargazers_count DESC",
     stars: "r.stargazers_count DESC",
-    updated: "r.repo_updated_at DESC",
+    updated: "r.repo_updated_at DESC, r.stargazers_count DESC",
     name: "r.name ASC",
     starred: "r.stargazers_count DESC",
   };
@@ -243,6 +247,7 @@ export async function GET(request: NextRequest) {
       description: row["description"] as string | null,
       language: row["language"] as string | null,
       stargazers_count: row["stargazers_count"] as number,
+      archived: Boolean(row["archived"]),
       topics: JSON.parse((row["topics"] as string) || "[]"),
       created_at: row["repo_created_at"] as string,
       updated_at: row["repo_updated_at"] as string,

@@ -32,9 +32,10 @@ import type { SortOption } from "@/hooks/use-starred-repos";
 import { getAvatarImageAttrs } from "@/lib/avatar";
 
 const sortLabels: Record<SortOption, string> = {
+  relevance: "Relevance",
   "recently-starred": "Recently Starred",
-  "most-stars": "Most Stars",
-  "recently-updated": "Recently Updated",
+  "most-stars": "Stars",
+  "recently-updated": "Last Updated",
   "name-az": "Name A-Z",
 };
 
@@ -43,6 +44,7 @@ interface TopBarProps {
   onSearchChange: (query: string) => void;
   sortBy: SortOption;
   onSortChange: (sort: SortOption) => void;
+  sortOptions?: readonly SortOption[];
   viewMode: "grid" | "list";
   onViewModeChange: (mode: "grid" | "list") => void;
   onMenuClick?: () => void;
@@ -58,6 +60,7 @@ export function TopBar({
   onSearchChange,
   sortBy,
   onSortChange,
+  sortOptions,
   viewMode,
   onViewModeChange,
   onMenuClick,
@@ -73,6 +76,7 @@ export function TopBar({
   const userAvatar = session?.user?.image
     ? getAvatarImageAttrs(session.user.image, 32)
     : null;
+  const visibleSortOptions = sortOptions ?? (Object.keys(sortLabels) as SortOption[]);
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2.5 backdrop-blur-sm sm:gap-3 sm:px-4 sm:py-3 md:px-6">
@@ -167,14 +171,14 @@ export function TopBar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {(Object.entries(sortLabels) as [SortOption, string][]).map(
-            ([value, label]) => (
+          {visibleSortOptions.map(
+            (value) => (
               <DropdownMenuItem
                 key={value}
                 onClick={() => onSortChange(value)}
                 className="justify-between"
               >
-                {label}
+                {sortLabels[value]}
                 {sortBy === value && (
                   <Check className="size-4 text-primary" />
                 )}

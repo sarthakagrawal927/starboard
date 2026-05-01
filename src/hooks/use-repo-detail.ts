@@ -19,6 +19,7 @@ interface RepoDetail {
     description: string | null;
     language: string | null;
     stargazers_count: number;
+    archived?: boolean;
     topics: string[];
     repo_created_at: string | null;
     repo_updated_at: string | null;

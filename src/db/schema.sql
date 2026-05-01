@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS repos (
   description      TEXT,
   language         TEXT,
   stargazers_count INTEGER NOT NULL DEFAULT 0,
+  archived         INTEGER NOT NULL DEFAULT 0,
   topics           TEXT NOT NULL DEFAULT '[]',
   repo_created_at  TEXT,
   repo_updated_at  TEXT

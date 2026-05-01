@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Archive,
   ArrowLeft,
   Calendar,
   ExternalLink,
@@ -288,6 +289,12 @@ export default function RepoDetailPage() {
             <MessageSquare className="size-3.5" />
             <span>{commentCount} {commentCount === 1 ? "comment" : "comments"}</span>
           </div>
+          {repo.archived && (
+            <div className="flex items-center gap-1.5">
+              <Archive className="size-3.5" />
+              <span>Archived</span>
+            </div>
+          )}
           {repo.repo_updated_at && (
             <div className="flex items-center gap-1.5">
               <GitFork className="size-3.5" />

@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLists } from "@/hooks/use-lists";
 import { useStarredRepos } from "@/hooks/use-starred-repos";
 
-const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
+const sortOptions = ["relevance", "recently-starred", "most-stars", "recently-updated", "name-az"] as const;
 
 function PageSkeleton() {
   return (
@@ -56,7 +56,7 @@ function PageSkeleton() {
         </aside>
 
         <div className="flex-1 p-4 md:p-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex flex-col rounded-lg border bg-card p-4">
                 <div className="flex items-start gap-3">
@@ -113,7 +113,7 @@ function StarsContent() {
 
   // Debounce search input
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 200);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -205,6 +205,7 @@ function StarsContent() {
         onSearchChange={setSearchQuery}
         sortBy={sortBy}
         onSortChange={setSortBy}
+        sortOptions={sortOptions}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onMenuClick={() => setSidebarOpen(true)}

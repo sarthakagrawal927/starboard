@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
-export type SortOption = "recently-starred" | "most-stars" | "recently-updated" | "name-az";
+export type SortOption = "relevance" | "recently-starred" | "most-stars" | "recently-updated" | "name-az";
 
 // Map frontend sort names to API sort params
 const sortMap: Record<SortOption, string> = {
+  relevance: "relevance",
   "recently-starred": "starred",
   "most-stars": "stars",
   "recently-updated": "updated",
@@ -22,6 +23,7 @@ export interface UserRepo {
   description: string | null;
   language: string | null;
   stargazers_count: number;
+  archived?: boolean;
   topics: string[];
   created_at: string;
   updated_at: string;

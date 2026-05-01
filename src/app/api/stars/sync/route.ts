@@ -75,8 +75,8 @@ export async function POST() {
 
     for (const repo of freshRepos) {
       statements.push({
-        sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url, description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url, description, language, stargazers_count, archived, topics, repo_created_at, repo_updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 full_name = excluded.full_name,
@@ -86,11 +86,13 @@ export async function POST() {
                 description = excluded.description,
                 language = excluded.language,
                 stargazers_count = excluded.stargazers_count,
+                archived = excluded.archived,
                 topics = excluded.topics,
                 repo_updated_at = excluded.repo_updated_at`,
         args: [
           repo.id, repo.name, repo.full_name, repo.owner.login, repo.owner.avatar_url,
           repo.html_url, repo.description, repo.language, repo.stargazers_count,
+          repo.archived ? 1 : 0,
           JSON.stringify(repo.topics), repo.created_at, repo.updated_at,
         ],
       });

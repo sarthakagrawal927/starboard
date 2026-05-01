@@ -11,7 +11,9 @@ export interface SimilarRepo {
   description: string | null;
   language: string | null;
   stargazers_count: number;
+  archived?: boolean;
   topics: string[];
+  updated_at?: string | null;
   list_id: number | null;
   collection_ids?: number[];
   tags: string[];

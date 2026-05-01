@@ -54,6 +54,7 @@ interface GhRepo {
   description: string | null;
   language: string | null;
   stargazers_count: number;
+  archived?: boolean;
   topics: string[] | null;
   created_at: string;
   updated_at: string;
@@ -191,8 +192,8 @@ async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
   );
   const stmts: InStatement[] = repos.map((r) => ({
     sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url,
-            description, language, stargazers_count, topics, repo_created_at, repo_updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            description, language, stargazers_count, archived, topics, repo_created_at, repo_updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             name = excluded.name,
             full_name = excluded.full_name,
@@ -202,6 +203,7 @@ async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
             description = excluded.description,
             language = excluded.language,
             stargazers_count = excluded.stargazers_count,
+            archived = excluded.archived,
             topics = excluded.topics,
             repo_updated_at = excluded.repo_updated_at`,
     args: [
@@ -214,6 +216,7 @@ async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
       r.description,
       r.language,
       r.stargazers_count,
+      r.archived ? 1 : 0,
       JSON.stringify(r.topics ?? []),
       r.created_at,
       r.updated_at,
