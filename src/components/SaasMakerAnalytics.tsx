@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+
 import { saasmaker } from '@/lib/saasmaker';
 
 export function SaasMakerAnalytics() {

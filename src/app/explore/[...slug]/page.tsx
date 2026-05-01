@@ -1,26 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import {
+  ArrowLeft,
+  Calendar,
+  ExternalLink,
+  GitFork,
+  MessageSquare,
+  Sparkles,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
-import { useRepoDetail } from "@/hooks/use-repo-detail";
-import { useSimilarRepos } from "@/hooks/use-similar-repos";
+import { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { useRepoDetail } from "@/hooks/use-repo-detail";
+import { useSimilarRepos } from "@/hooks/use-similar-repos";
 import { getAvatarImageAttrs } from "@/lib/avatar";
-import {
-  MessageSquare,
-  Star,
-  ExternalLink,
-  ArrowLeft,
-  ThumbsUp,
-  ThumbsDown,
-  Calendar,
-  GitFork,
-  Sparkles,
-} from "lucide-react";
 
 const languageColors: Record<string, string> = {
   JavaScript: "#f1e05a",

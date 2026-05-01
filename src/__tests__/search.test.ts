@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { rrfFuse } from "@/lib/search";
+import { describe, expect,it } from "vitest";
+
 import { cosineSimilarity } from "@/lib/embeddings";
+import { rrfFuse } from "@/lib/search";
 
 describe("rrfFuse", () => {
   it("returns empty for empty input", () => {

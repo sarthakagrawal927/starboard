@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
 import type { Client } from "@libsql/client";
+import { beforeAll,describe, expect, it } from "vitest";
 
 const hasEnv = !!(process.env.TURSO_DATABASE_URL && process.env.AI_GATEWAY_URL);
 

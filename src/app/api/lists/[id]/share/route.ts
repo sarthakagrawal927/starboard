@@ -1,6 +1,8 @@
-import { auth } from "@/lib/auth";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { db } from "@/db";
-import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 function generateSlug(name: string): string {
   const base = name
