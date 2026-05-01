@@ -1,5 +1,5 @@
 import type { InStatement, InValue } from "@libsql/client";
-import { type NextRequest,NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
   const q = params.get("q")?.trim() || null;
   const languages = params.get("language")?.split(",").filter(Boolean) || [];
   const listId = params.get("list_id");
-  const tag = params.get("tag")?.trim() || null;
   const sort = params.get("sort") || "starred";
   const limit = Math.min(Math.max(parseInt(params.get("limit") || "50", 10) || 50, 1), 200);
   const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
@@ -52,7 +51,7 @@ export async function GET(request: NextRequest) {
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55; // cosine distance cutoff (lower = more similar)
 
-    // 1. Lexical matches across name, full_name, description, topics, tags, notes.
+    // 1. Lexical matches across name, full_name, description, topics, notes.
     //    NOCASE for case-insensitive. Order by column priority (name > full_name > rest).
     const lexResult = await db.execute({
       sql: `SELECT r.id,
@@ -61,8 +60,7 @@ export async function GET(request: NextRequest) {
                      WHEN r.full_name   LIKE ? COLLATE NOCASE THEN 1
                      WHEN r.description LIKE ? COLLATE NOCASE THEN 2
                      WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
-                     WHEN ur.tags       LIKE ? COLLATE NOCASE THEN 4
-                     WHEN ur.notes      LIKE ? COLLATE NOCASE THEN 5
+                     WHEN ur.notes      LIKE ? COLLATE NOCASE THEN 4
                      ELSE 6
                    END AS priority
             FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
@@ -71,13 +69,12 @@ export async function GET(request: NextRequest) {
                 OR r.full_name   LIKE ? COLLATE NOCASE
                 OR r.description LIKE ? COLLATE NOCASE
                 OR r.topics      LIKE ? COLLATE NOCASE
-                OR ur.tags       LIKE ? COLLATE NOCASE
                 OR ur.notes      LIKE ? COLLATE NOCASE)
             ORDER BY priority ASC`,
       args: [
-        pattern, pattern, pattern, pattern, pattern, pattern,
+        pattern, pattern, pattern, pattern, pattern,
         userId,
-        pattern, pattern, pattern, pattern, pattern, pattern,
+        pattern, pattern, pattern, pattern, pattern,
       ],
     });
     const lexIds = lexResult.rows.map((r) => r.id as number);
@@ -119,9 +116,9 @@ export async function GET(request: NextRequest) {
     } else {
       // No matches — keep LIKE so we don't return the whole library.
       whereClauses.push(
-        "(r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.tags LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)"
+        "(r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)"
       );
-      whereArgs.push(pattern, pattern, pattern, pattern, pattern, pattern);
+      whereArgs.push(pattern, pattern, pattern, pattern, pattern);
     }
   }
 
@@ -132,18 +129,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (listId !== null) {
-    if (listId === "0" || listId === "null") {
-      whereClauses.push("ur.list_id IS NULL");
-    } else {
-      whereClauses.push("ur.list_id = ?");
-      whereArgs.push(parseInt(listId, 10));
-    }
-  }
-
-  if (tag) {
-    // tags is a JSON array stored as TEXT, use instr for contains check
-    whereClauses.push("instr(ur.tags, ?) > 0");
-    whereArgs.push(JSON.stringify(tag));
+    whereClauses.push(
+      "EXISTS (SELECT 1 FROM user_repo_lists url WHERE url.user_id = ur.user_id AND url.repo_id = ur.repo_id AND url.list_id = ?)"
+    );
+    whereArgs.push(parseInt(listId, 10));
   }
 
   const whereSQL = whereClauses.join(" AND ");
@@ -168,7 +157,12 @@ export async function GET(request: NextRequest) {
   try {
     // Main filtered query
     const mainQuery: InStatement = {
-      sql: `SELECT r.*, ur.list_id, ur.tags, ur.notes, ur.starred_at, ur.is_starred, ur.is_saved
+      sql: `SELECT r.*, ur.list_id, ur.notes, ur.starred_at, ur.is_starred, ur.is_saved,
+                   COALESCE((
+                     SELECT json_group_array(url.list_id)
+                     FROM user_repo_lists url
+                     WHERE url.user_id = ur.user_id AND url.repo_id = ur.repo_id
+                   ), '[]') AS collection_ids
             FROM user_repos ur
             JOIN repos r ON r.id = ur.repo_id
             WHERE ${whereSQL}
@@ -200,27 +194,21 @@ export async function GET(request: NextRequest) {
     const listFacetQuery: InStatement = {
       sql: `SELECT ul.id, ul.name, ul.color, COUNT(ur.repo_id) as count
             FROM user_lists ul
-            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id AND (ur.is_starred = 1 OR ur.is_saved = 1)
+            LEFT JOIN user_repo_lists url ON url.list_id = ul.id AND url.user_id = ul.user_id
+            LEFT JOIN user_repos ur ON ur.user_id = url.user_id AND ur.repo_id = url.repo_id AND (ur.is_starred = 1 OR ur.is_saved = 1)
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
       args: [userId],
     };
 
-    const tagFacetQuery: InStatement = {
-      sql: `SELECT ur.tags
-            FROM user_repos ur
-            WHERE ur.user_id = ? AND (ur.is_starred = 1 OR ur.is_saved = 1) AND ur.tags != '[]'`,
-      args: [userId],
-    };
-
     // Run main query + batch the rest in parallel
     const [mainResult, batchResults] = await Promise.all([
       db.execute(mainQuery),
-      db.batch([countQuery, languageFacetQuery, listFacetQuery, tagFacetQuery]),
+      db.batch([countQuery, languageFacetQuery, listFacetQuery]),
     ]);
 
-    const [countResult, langResult, listResult, tagResult] = batchResults;
+    const [countResult, langResult, listResult] = batchResults;
 
     // Parse main results
     const repos = mainResult.rows.map((row) => ({
@@ -239,7 +227,8 @@ export async function GET(request: NextRequest) {
       created_at: row.repo_created_at as string,
       updated_at: row.repo_updated_at as string,
       list_id: row.list_id as number | null,
-      tags: JSON.parse((row.tags as string) || "[]"),
+      collection_ids: JSON.parse((row.collection_ids as string) || "[]"),
+      tags: [],
       notes: row.notes as string | null,
       starred_at: row.starred_at as string,
       is_starred: Boolean(row.is_starred),
@@ -262,25 +251,13 @@ export async function GET(request: NextRequest) {
       count: row.count as number,
     }));
 
-    // Tag facets — aggregate in JS since SQLite can't iterate JSON arrays natively
-    const tagCounts = new Map<string, number>();
-    for (const row of tagResult.rows) {
-      const tags: string[] = JSON.parse((row.tags as string) || "[]");
-      for (const t of tags) {
-        tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
-      }
-    }
-    const tagFacets: [string, number][] = Array.from(tagCounts.entries()).sort(
-      (a, b) => b[1] - a[1]
-    );
-
     return NextResponse.json({
       repos,
       total,
       facets: {
         languages: languageFacets,
         lists: listFacets,
-        tags: tagFacets,
+        tags: [],
       },
     });
   } catch (error) {

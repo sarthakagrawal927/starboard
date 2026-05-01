@@ -21,12 +21,8 @@ interface RepoGridProps {
   viewMode: "grid" | "list";
   isLoading: boolean;
   isValidating?: boolean;
-  repoTagMap?: Record<number, string[]>;
-  allTags?: string[];
-  onAddTag?: (repoId: number, tag: string) => void;
-  onRemoveTag?: (repoId: number, tag: string) => void;
   lists?: UserList[];
-  onAssignList?: (repoId: number, listId: number | null) => void;
+  onAssignList?: (repoId: number, listId: number, assigned: boolean) => void;
   onToggleSave?: (repoId: number, saved: boolean) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
@@ -80,10 +76,6 @@ export function RepoGrid({
   viewMode,
   isLoading,
   isValidating,
-  repoTagMap = {},
-  allTags,
-  onAddTag,
-  onRemoveTag,
   lists,
   onAssignList,
   onToggleSave,
@@ -223,23 +215,16 @@ export function RepoGrid({
                   : "pb-2"
               }
             >
-              {rowRepos.map((repo) => {
-                const repoTags = repoTagMap[repo.id] ?? [];
-                return (
-                  <RepoCard
-                    key={repo.id}
-                    repo={repo}
-                    viewMode={viewMode}
-                    tags={repoTags}
-                    allTags={allTags}
-                    onAddTag={onAddTag}
-                    onRemoveTag={onRemoveTag}
-                    lists={lists}
-                    onAssignList={onAssignList}
-                    onToggleSave={onToggleSave}
-                  />
-                );
-              })}
+              {rowRepos.map((repo) => (
+                <RepoCard
+                  key={repo.id}
+                  repo={repo}
+                  viewMode={viewMode}
+                  lists={lists}
+                  onAssignList={onAssignList}
+                  onToggleSave={onToggleSave}
+                />
+              ))}
             </div>
           );
         })}

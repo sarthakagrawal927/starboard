@@ -49,11 +49,11 @@ export function useLists() {
     mutate();
   };
 
-  const assignRepoToList = async (repoId: number, listId: number | null) => {
+  const assignRepoToList = async (repoId: number, listId: number, assigned: boolean) => {
     await fetch(`/api/repos/${repoId}/list`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listId }),
+      body: JSON.stringify({ listId, assigned }),
     });
   };
 

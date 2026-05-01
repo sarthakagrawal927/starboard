@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLists } from "@/hooks/use-lists";
-import { useRepoTags } from "@/hooks/use-repo-tags";
 import { useStarredRepos } from "@/hooks/use-starred-repos";
 
 const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
@@ -106,7 +105,6 @@ function StarsContent() {
     serialize: (v) => (v != null ? String(v) : ""),
     defaultValue: null,
   });
-  const [selectedTag, setSelectedTag] = useQueryState("tag", parseAsString.withDefault("").withOptions({ clearOnDefault: true }));
 
   // Local-only state
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -124,29 +122,23 @@ function StarsContent() {
     q: debouncedSearch,
     language: selectedLanguages,
     listId: selectedListId,
-    tag: selectedTag || null,
     sort: sortBy,
     limit: 50,
   });
   const { lists, isLoading: listsLoading, createList, deleteList, shareList, assignRepoToList } = useLists();
-  const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
   const showSidebarSkeleton =
     (reposLoading || listsLoading) &&
     lists.length === 0 &&
-    facets.languages.length === 0 &&
-    facets.tags.length === 0;
+    facets.languages.length === 0;
 
-  const allTags = facets.tags.map(([tag]) => tag);
-
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedLanguages.length > 0 || selectedListId !== null || (selectedTag !== null && selectedTag !== "");
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedLanguages.length > 0 || selectedListId !== null;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setSelectedLanguages([]);
     setSelectedListId(null);
-    setSelectedTag("");
-  }, [setSearchQuery, setSelectedLanguages, setSelectedListId, setSelectedTag]);
+  }, [setSearchQuery, setSelectedLanguages, setSelectedListId]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
@@ -160,8 +152,8 @@ function StarsContent() {
     setSelectedListId(id);
   }, [setSelectedListId]);
 
-  const handleAssignList = useCallback(async (repoId: number, listId: number | null) => {
-    await assignRepoToList(repoId, listId);
+  const handleAssignList = useCallback(async (repoId: number, listId: number, assigned: boolean) => {
+    await assignRepoToList(repoId, listId, assigned);
     mutate();
   }, [assignRepoToList, mutate]);
 
@@ -182,10 +174,6 @@ function StarsContent() {
     mutate();
   }, [deleteList, mutate, selectedListId, setSelectedListId]);
 
-  const handleTagSelect = useCallback((tag: string | null) => {
-    setSelectedTag(tag ?? "");
-  }, [setSelectedTag]);
-
   if (status === "loading") {
     return <PageSkeleton />;
   }
@@ -198,7 +186,6 @@ function StarsContent() {
     <Sidebar
       languageFacets={facets.languages}
       listFacets={facets.lists}
-      tagFacets={facets.tags}
       isLoading={showSidebarSkeleton}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
@@ -208,8 +195,6 @@ function StarsContent() {
       onCreateList={createList}
       onDeleteList={handleDeleteList}
       onShareList={shareList}
-      selectedTag={selectedTag || null}
-      onTagSelect={handleTagSelect}
     />
   );
 
@@ -253,12 +238,12 @@ function StarsContent() {
               )}
               {syncResult.importedLists.length > 0 && (
                 <p className="mt-1 text-sky-500">
-                  Imported {syncResult.importedLists.length} GitHub lists: {syncResult.importedLists.join(", ")}
+                  Imported {syncResult.importedLists.length} GitHub collections: {syncResult.importedLists.join(", ")}
                 </p>
               )}
               {syncResult.assignedRepos > 0 && (
                 <p className="mt-1 text-sky-500">
-                  Assigned {syncResult.assignedRepos} repos to imported GitHub lists.
+                  Assigned {syncResult.assignedRepos} repos to imported GitHub collections.
                 </p>
               )}
               {syncResult.unchanged && (
@@ -313,7 +298,7 @@ function StarsContent() {
           <SheetContent side="left" className="w-[280px] p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
             <SheetDescription className="sr-only">
-              Filter library repositories by language, list, and tags.
+              Filter library repositories by language and collection.
             </SheetDescription>
             {sidebarContent}
           </SheetContent>
@@ -326,10 +311,6 @@ function StarsContent() {
               viewMode={viewMode}
               isLoading={reposLoading}
               isValidating={isValidating}
-              repoTagMap={repoTagMap}
-              allTags={allTags}
-              onAddTag={addTag}
-              onRemoveTag={removeTag}
               lists={lists}
               onAssignList={handleAssignList}
               onToggleSave={handleToggleSave}

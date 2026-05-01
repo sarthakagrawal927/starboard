@@ -194,7 +194,8 @@ async function syncGitHubLists(
     const existingListsResult = await db.execute({
       sql: `SELECT ul.id, ul.name, ul.description, ul.color, ul.position, COUNT(ur.repo_id) as repo_count
             FROM user_lists ul
-            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id AND ur.is_starred = 1
+            LEFT JOIN user_repo_lists url ON url.list_id = ul.id AND url.user_id = ul.user_id
+            LEFT JOIN user_repos ur ON ur.user_id = url.user_id AND ur.repo_id = url.repo_id AND ur.is_starred = 1
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
@@ -279,7 +280,8 @@ async function syncGitHubLists(
       return { importedLists, assignedRepos: 0, changed };
     }
 
-    const desiredAssignments = new Map<number, number>();
+    const desiredAssignments = new Set<string>();
+    const desiredRepoIds = new Set<number>();
 
     for (const list of githubLists) {
       const listId = githubListIds.get(list.slug);
@@ -290,48 +292,50 @@ async function syncGitHubLists(
       const repoFullNames = await fetchPublicStarListRepoNames(list.href);
       for (const fullName of repoFullNames) {
         const repoId = repoIdByFullName.get(normalizeRepoFullName(fullName));
-        if (!repoId || desiredAssignments.has(repoId)) {
+        if (!repoId) {
           continue;
         }
 
-        desiredAssignments.set(repoId, listId);
+        desiredAssignments.add(assignmentKey(repoId, listId));
+        desiredRepoIds.add(repoId);
       }
     }
 
     const placeholders = importedListIds.map(() => "?").join(",");
     const currentAssignmentsResult = await db.execute({
-      sql: `SELECT repo_id, list_id FROM user_repos WHERE user_id = ? AND is_starred = 1 AND list_id IN (${placeholders})`,
+      sql: `SELECT url.repo_id, url.list_id
+            FROM user_repo_lists url
+            JOIN user_repos ur ON ur.user_id = url.user_id AND ur.repo_id = url.repo_id AND ur.is_starred = 1
+            WHERE url.user_id = ? AND url.list_id IN (${placeholders})`,
       args: [userId, ...importedListIds],
     });
-    const currentAssignments = new Map<number, number>(
-      currentAssignmentsResult.rows.map((row) => [row.repo_id as number, row.list_id as number])
+    const currentAssignments = new Set(
+      currentAssignmentsResult.rows.map((row) =>
+        assignmentKey(row.repo_id as number, row.list_id as number)
+      )
     );
 
-    if (!mapsEqual(currentAssignments, desiredAssignments)) {
+    const missingAssignments = new Set(
+      [...desiredAssignments].filter((assignment) => !currentAssignments.has(assignment))
+    );
+
+    if (missingAssignments.size > 0) {
       changed = true;
 
-      if (currentAssignments.size > 0) {
-        await db.execute({
-          sql: `UPDATE user_repos SET list_id = NULL WHERE user_id = ? AND is_starred = 1 AND list_id IN (${placeholders})`,
-          args: [userId, ...importedListIds],
+      const assignmentStatements: InStatement[] = [];
+      for (const value of missingAssignments) {
+        const [repoId, listId] = value.split(":").map(Number);
+        assignmentStatements.push({
+          sql: "INSERT OR IGNORE INTO user_repo_lists (user_id, repo_id, list_id) VALUES (?, ?, ?)",
+          args: [userId, repoId, listId],
         });
       }
-
-      if (desiredAssignments.size > 0) {
-        const assignmentStatements: InStatement[] = [];
-        for (const [repoId, listId] of desiredAssignments) {
-          assignmentStatements.push({
-            sql: "UPDATE user_repos SET list_id = ? WHERE user_id = ? AND repo_id = ? AND is_starred = 1",
-            args: [listId, userId, repoId],
-          });
-        }
-        await db.batch(assignmentStatements);
-      }
+      await db.batch(assignmentStatements);
     }
 
     return {
       importedLists,
-      assignedRepos: desiredAssignments.size,
+      assignedRepos: desiredRepoIds.size,
       changed,
     };
   } catch (error) {
@@ -368,18 +372,8 @@ function emptyGitHubListSync(): GitHubListSyncResult {
   };
 }
 
-function mapsEqual(left: Map<number, number>, right: Map<number, number>): boolean {
-  if (left.size !== right.size) {
-    return false;
-  }
-
-  for (const [key, value] of left) {
-    if (right.get(key) !== value) {
-      return false;
-    }
-  }
-
-  return true;
+function assignmentKey(repoId: number, listId: number): string {
+  return `${repoId}:${listId}`;
 }
 
 function normalizeListName(name: string): string {

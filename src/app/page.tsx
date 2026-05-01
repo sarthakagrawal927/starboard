@@ -35,7 +35,7 @@ export default async function Home() {
           />
           <FeatureCard
             title="Organize"
-            description="Save repos to your library, lists, and tags."
+            description="Save repos to your library and collections."
           />
         </div>
 

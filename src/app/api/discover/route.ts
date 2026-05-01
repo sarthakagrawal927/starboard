@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
   const q = params.get("q")?.trim() || null;
   const languages = params.get("language")?.split(",").filter(Boolean) || [];
   const listId = params.get("list_id");
-  const tag = params.get("tag")?.trim() || null;
   const sort = params.get("sort") || "stars";
   const limit = Math.min(Math.max(parseInt(params.get("limit") || "50", 10) || 50, 1), 200);
   const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
@@ -115,13 +114,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (listId !== null) {
-    whereClauses.push("ur.list_id = ?");
+    whereClauses.push(
+      "EXISTS (SELECT 1 FROM user_repo_lists url WHERE url.user_id = ? AND url.repo_id = r.id AND url.list_id = ?)"
+    );
+    whereArgs.push(userId);
     whereArgs.push(parseInt(listId, 10));
-  }
-
-  if (tag) {
-    whereClauses.push("instr(ur.tags, ?) > 0");
-    whereArgs.push(JSON.stringify(tag));
   }
 
   const whereSQL = whereClauses.join(" AND ");
@@ -144,17 +141,21 @@ export async function GET(request: NextRequest) {
     const mainQuery: InStatement = {
       sql: `SELECT r.*,
                    ur.list_id,
-                   COALESCE(ur.tags, '[]') AS tags,
                    ur.notes,
                    ur.starred_at,
                    COALESCE(ur.is_starred, 0) AS is_starred,
-                   COALESCE(ur.is_saved, 0) AS is_saved
+                   COALESCE(ur.is_saved, 0) AS is_saved,
+                   COALESCE((
+                     SELECT json_group_array(url.list_id)
+                     FROM user_repo_lists url
+                     WHERE url.user_id = ? AND url.repo_id = r.id
+                   ), '[]') AS collection_ids
             FROM repos r
             LEFT JOIN user_repos ur ON ur.user_id = ? AND ur.repo_id = r.id
             WHERE ${whereSQL}
             ORDER BY ${orderBy}
             LIMIT ? OFFSET ?`,
-      args: [userId, ...whereArgs, limit, offset],
+      args: [userId, userId, ...whereArgs, limit, offset],
     };
 
     const countQuery: InStatement = {
@@ -177,28 +178,20 @@ export async function GET(request: NextRequest) {
     const listFacetQuery: InStatement = {
       sql: `SELECT ul.id, ul.name, ul.color, COUNT(r.id) as count
             FROM user_lists ul
-            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id
-            LEFT JOIN repos r ON r.id = ur.repo_id AND ${ELIGIBLE_REPO_SQL}
+            LEFT JOIN user_repo_lists url ON url.list_id = ul.id AND url.user_id = ul.user_id
+            LEFT JOIN repos r ON r.id = url.repo_id AND ${ELIGIBLE_REPO_SQL}
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
       args: [MIN_STARS_FLOOR, userId],
     };
 
-    const tagFacetQuery: InStatement = {
-      sql: `SELECT ur.tags
-            FROM user_repos ur
-            JOIN repos r ON r.id = ur.repo_id
-            WHERE ur.user_id = ? AND ${ELIGIBLE_REPO_SQL} AND ur.tags != '[]'`,
-      args: [userId, MIN_STARS_FLOOR],
-    };
-
     const [mainResult, batchResults] = await Promise.all([
       db.execute(mainQuery),
-      db.batch([countQuery, languageFacetQuery, listFacetQuery, tagFacetQuery]),
+      db.batch([countQuery, languageFacetQuery, listFacetQuery]),
     ]);
 
-    const [countResult, langResult, listResult, tagResult] = batchResults;
+    const [countResult, langResult, listResult] = batchResults;
 
     const repos = mainResult.rows.map((row) => ({
       id: row["id"] as number,
@@ -216,7 +209,8 @@ export async function GET(request: NextRequest) {
       created_at: row["repo_created_at"] as string,
       updated_at: row["repo_updated_at"] as string,
       list_id: row["list_id"] as number | null,
-      tags: JSON.parse((row["tags"] as string) || "[]"),
+      collection_ids: JSON.parse((row["collection_ids"] as string) || "[]"),
+      tags: [],
       notes: row["notes"] as string | null,
       starred_at: row["starred_at"] as string | null,
       is_starred: Boolean(row["is_starred"]),
@@ -234,19 +228,10 @@ export async function GET(request: NextRequest) {
       count: r["count"] as number,
     }));
 
-    const tagCounts = new Map<string, number>();
-    for (const row of tagResult.rows) {
-      const tags = JSON.parse((row["tags"] as string) || "[]") as string[];
-      for (const tag of tags) {
-        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
-      }
-    }
-    const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]);
-
     return NextResponse.json({
       repos,
       total: countResult.rows[0]?.["total"] ?? 0,
-      facets: { languages, lists, tags },
+      facets: { languages, lists, tags: [] },
       minStars: MIN_STARS_FLOOR,
     });
   } catch (error) {

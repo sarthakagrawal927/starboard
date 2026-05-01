@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { db } from "@/db";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { db } from "@/db";
 import { getAvatarImageAttrs } from "@/lib/avatar";
 
 interface Repo {
@@ -45,9 +46,9 @@ async function getPublicList(slug: string) {
     sql: `SELECT r.id, r.full_name, r.description, r.language,
                  r.stargazers_count, r.html_url, r.owner_login, r.owner_avatar,
                  r.topics
-          FROM user_repos ur
-          JOIN repos r ON r.id = ur.repo_id
-          WHERE ur.list_id = ? AND ur.user_id = ?
+          FROM user_repo_lists url
+          JOIN repos r ON r.id = url.repo_id
+          WHERE url.list_id = ? AND url.user_id = ?
           ORDER BY r.stargazers_count DESC`,
     args: [row.id, row.user_id],
   });

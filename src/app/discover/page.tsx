@@ -18,7 +18,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDiscoverRepos } from "@/hooks/use-discover-repos";
 import { useLists } from "@/hooks/use-lists";
-import { useRepoTags } from "@/hooks/use-repo-tags";
 
 const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
 
@@ -104,7 +103,6 @@ function DiscoverContent() {
     serialize: (v) => (v != null ? String(v) : ""),
     defaultValue: null,
   });
-  const [selectedTag, setSelectedTag] = useQueryState("tag", parseAsString.withDefault("").withOptions({ clearOnDefault: true }));
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -119,33 +117,26 @@ function DiscoverContent() {
     q: debouncedSearch,
     language: selectedLanguages,
     listId: selectedListId,
-    tag: selectedTag || null,
     sort: sortBy,
     limit: 50,
   });
   const { lists, isLoading: listsLoading, createList, deleteList, shareList, assignRepoToList } = useLists();
-  const { repoTagMap, addTag, removeTag } = useRepoTags(repos, mutate);
 
   const showSidebarSkeleton =
     (reposLoading || listsLoading) &&
     lists.length === 0 &&
-    facets.languages.length === 0 &&
-    facets.tags.length === 0;
-
-  const allTags = facets.tags.map(([tag]) => tag);
+    facets.languages.length === 0;
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     selectedLanguages.length > 0 ||
-    selectedListId !== null ||
-    (selectedTag !== null && selectedTag !== "");
+    selectedListId !== null;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setSelectedLanguages([]);
     setSelectedListId(null);
-    setSelectedTag("");
-  }, [setSearchQuery, setSelectedLanguages, setSelectedListId, setSelectedTag]);
+  }, [setSearchQuery, setSelectedLanguages, setSelectedListId]);
 
   const handleLanguageToggle = useCallback((language: string) => {
     setSelectedLanguages((prev) =>
@@ -155,8 +146,8 @@ function DiscoverContent() {
     );
   }, [setSelectedLanguages]);
 
-  const handleAssignList = useCallback(async (repoId: number, listId: number | null) => {
-    await assignRepoToList(repoId, listId);
+  const handleAssignList = useCallback(async (repoId: number, listId: number, assigned: boolean) => {
+    await assignRepoToList(repoId, listId, assigned);
     mutate();
   }, [assignRepoToList, mutate]);
 
@@ -189,7 +180,6 @@ function DiscoverContent() {
     <Sidebar
       languageFacets={facets.languages}
       listFacets={facets.lists}
-      tagFacets={facets.tags}
       isLoading={showSidebarSkeleton}
       selectedLanguages={selectedLanguages}
       onLanguageToggle={handleLanguageToggle}
@@ -199,8 +189,6 @@ function DiscoverContent() {
       onCreateList={createList}
       onDeleteList={handleDeleteList}
       onShareList={shareList}
-      selectedTag={selectedTag || null}
-      onTagSelect={(tag) => setSelectedTag(tag ?? "")}
     />
   );
 
@@ -228,7 +216,7 @@ function DiscoverContent() {
           <SheetContent side="left" className="w-[280px] p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
             <SheetDescription className="sr-only">
-              Filter seeded repositories by language, list, and tags.
+              Filter seeded repositories by language and collection.
             </SheetDescription>
             {sidebarContent}
           </SheetContent>
@@ -241,10 +229,6 @@ function DiscoverContent() {
               viewMode={viewMode}
               isLoading={reposLoading}
               isValidating={isValidating}
-              repoTagMap={repoTagMap}
-              allTags={allTags}
-              onAddTag={addTag}
-              onRemoveTag={removeTag}
               lists={lists}
               onAssignList={handleAssignList}
               onToggleSave={handleToggleSave}

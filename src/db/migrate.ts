@@ -38,6 +38,61 @@ async function migrate() {
     await db.execute(statement);
   }
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS user_repo_lists (
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      repo_id    INTEGER NOT NULL REFERENCES repos(id),
+      list_id    INTEGER NOT NULL REFERENCES user_lists(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, repo_id, list_id)
+    )
+  `);
+  await db.execute("CREATE INDEX IF NOT EXISTS idx_user_repo_lists_user_list ON user_repo_lists(user_id, list_id)");
+  await db.execute("CREATE INDEX IF NOT EXISTS idx_user_repo_lists_repo ON user_repo_lists(repo_id)");
+
+  await db.execute(`
+    INSERT OR IGNORE INTO user_repo_lists (user_id, repo_id, list_id)
+    SELECT user_id, repo_id, list_id
+    FROM user_repos
+    WHERE list_id IS NOT NULL
+  `);
+
+  await db.execute(`
+    INSERT INTO user_lists (user_id, name, color, icon, position, description)
+    SELECT tag_rows.user_id,
+           tag_rows.tag,
+           '#64748b',
+           NULL,
+           COALESCE((SELECT MAX(position) FROM user_lists existing WHERE existing.user_id = tag_rows.user_id), -1)
+             + ROW_NUMBER() OVER (PARTITION BY tag_rows.user_id ORDER BY lower(tag_rows.tag)),
+           'Migrated from tags'
+    FROM (
+      SELECT DISTINCT ur.user_id, trim(tag_each.value) AS tag
+      FROM user_repos ur
+      JOIN json_each(ur.tags) AS tag_each
+      WHERE ur.tags != '[]'
+        AND trim(tag_each.value) != ''
+    ) tag_rows
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM user_lists ul
+      WHERE ul.user_id = tag_rows.user_id
+        AND lower(ul.name) = lower(tag_rows.tag)
+    )
+  `);
+
+  await db.execute(`
+    INSERT OR IGNORE INTO user_repo_lists (user_id, repo_id, list_id)
+    SELECT ur.user_id, ur.repo_id, ul.id
+    FROM user_repos ur
+    JOIN json_each(ur.tags) AS tag_each
+    JOIN user_lists ul
+      ON ul.user_id = ur.user_id
+     AND lower(ul.name) = lower(trim(tag_each.value))
+    WHERE ur.tags != '[]'
+      AND trim(tag_each.value) != ''
+  `);
+
   await db.execute(
     "UPDATE user_repos SET is_saved = 1 WHERE list_id IS NOT NULL OR tags != '[]' OR notes IS NOT NULL"
   );

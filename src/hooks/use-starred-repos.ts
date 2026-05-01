@@ -26,6 +26,7 @@ export interface UserRepo {
   created_at: string;
   updated_at: string;
   list_id: number | null;
+  collection_ids: number[];
   tags: string[];
   notes: string | null;
   starred_at: string | null;
@@ -58,7 +59,6 @@ export interface UseStarredReposOptions {
   q?: string;
   language?: string[];
   listId?: number | null;
-  tag?: string | null;
   sort?: SortOption;
   limit?: number;
 }
@@ -68,7 +68,6 @@ function buildStarsUrl(opts: UseStarredReposOptions, offset: number): string {
   if (opts.q) params.set("q", opts.q);
   if (opts.language?.length) params.set("language", opts.language.join(","));
   if (opts.listId != null) params.set("list_id", String(opts.listId));
-  if (opts.tag) params.set("tag", opts.tag);
   const apiSort = sortMap[opts.sort ?? "recently-starred"];
   if (apiSort !== "starred") params.set("sort", apiSort);
   const limit = opts.limit ?? 50;
@@ -84,7 +83,6 @@ function filterKey(opts: UseStarredReposOptions): string {
     q: opts.q ?? "",
     lang: opts.language ?? [],
     list: opts.listId ?? null,
-    tag: opts.tag ?? null,
     sort: opts.sort ?? "recently-starred",
   });
 }

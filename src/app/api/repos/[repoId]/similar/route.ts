@@ -82,7 +82,12 @@ export async function GET(
            WHERE r.id IN (${placeholders})`
         : `SELECT r.id, r.name, r.full_name, r.owner_login, r.owner_avatar,
                  r.html_url, r.description, r.language, r.stargazers_count, r.topics,
-                 ur.list_id, ur.tags
+                 ur.list_id,
+                 COALESCE((
+                   SELECT json_group_array(url.list_id)
+                   FROM user_repo_lists url
+                   WHERE url.user_id = ur.user_id AND url.repo_id = ur.repo_id
+                 ), '[]') AS collection_ids
            FROM user_repos ur
            JOIN repos r ON r.id = ur.repo_id
            WHERE ur.user_id = ? AND r.id IN (${placeholders})`;
@@ -111,7 +116,8 @@ export async function GET(
         stargazers_count: row.stargazers_count as number,
         topics: JSON.parse((row.topics as string) || "[]"),
         list_id: (row.list_id as number | null | undefined) ?? null,
-        tags: row.tags ? JSON.parse((row.tags as string) || "[]") : [],
+        collection_ids: row.collection_ids ? JSON.parse((row.collection_ids as string) || "[]") : [],
+        tags: [],
         similarity: 1 - (distMap.get(row.id as number) ?? 1),
       }));
 

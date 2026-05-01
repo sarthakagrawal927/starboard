@@ -102,6 +102,11 @@ export async function DELETE(
   }
 
   await db.execute({
+    sql: "DELETE FROM user_repo_lists WHERE list_id = ? AND user_id = ?",
+    args: [listId, session.user.githubId],
+  });
+
+  await db.execute({
     sql: "DELETE FROM user_lists WHERE id = ? AND user_id = ?",
     args: [listId, session.user.githubId],
   });

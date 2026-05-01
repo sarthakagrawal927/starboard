@@ -5,7 +5,6 @@ import Link from "next/link";
 import { memo } from "react";
 
 import { ListPicker } from "@/components/list-picker";
-import { TagPicker } from "@/components/tag-picker";
 import { Badge } from "@/components/ui/badge";
 import type { UserList } from "@/hooks/use-lists";
 import type { UserRepo } from "@/hooks/use-starred-repos";
@@ -53,22 +52,14 @@ function formatStarCount(count: number): string {
 
 interface RepoCardProps {
   repo: UserRepo;
-  tags?: string[];
-  allTags?: string[];
-  onAddTag?: (repoId: number, tag: string) => void;
-  onRemoveTag?: (repoId: number, tag: string) => void;
   lists?: UserList[];
-  onAssignList?: (repoId: number, listId: number | null) => void;
+  onAssignList?: (repoId: number, listId: number, assigned: boolean) => void;
   onToggleSave?: (repoId: number, saved: boolean) => void;
   viewMode?: "grid" | "list";
 }
 
 export const RepoCard = memo(function RepoCard({
   repo,
-  tags = [],
-  allTags,
-  onAddTag,
-  onRemoveTag,
   lists,
   onAssignList,
   onToggleSave,
@@ -95,6 +86,7 @@ export const RepoCard = memo(function RepoCard({
     />
   );
   const isSaved = Boolean(repo.is_saved);
+  const collectionIds = repo.collection_ids ?? [];
   const saveButton = onToggleSave ? (
     <button
       type="button"
@@ -125,10 +117,7 @@ export const RepoCard = memo(function RepoCard({
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
               {saveButton}
               {lists && onAssignList && (
-                <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
-              )}
-              {allTags && onAddTag && onRemoveTag && (
-                <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
+                <ListPicker repoId={repo.id} currentListIds={collectionIds} lists={lists} onAssign={onAssignList} />
               )}
               {repo.language && (
                 <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
@@ -150,7 +139,7 @@ export const RepoCard = memo(function RepoCard({
               {repo.description}
             </p>
           )}
-          {(repo.topics.length > 0 || tags.length > 0) && (
+          {repo.topics.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {repo.topics.slice(0, 4).map((topic) => (
                 <Badge
@@ -159,15 +148,6 @@ export const RepoCard = memo(function RepoCard({
                   className="text-[10px] font-normal"
                 >
                   {topic}
-                </Badge>
-              ))}
-              {tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="outline"
-                  className="text-[10px] font-normal"
-                >
-                  {tag}
                 </Badge>
               ))}
             </div>
@@ -197,10 +177,7 @@ export const RepoCard = memo(function RepoCard({
         <div className="flex shrink-0 items-center gap-0.5">
           {saveButton}
           {lists && onAssignList && (
-            <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
-          )}
-          {allTags && onAddTag && onRemoveTag && (
-            <TagPicker repoId={repo.id} tags={tags} onAddTag={onAddTag} onRemoveTag={onRemoveTag} allTags={allTags} />
+            <ListPicker repoId={repo.id} currentListIds={collectionIds} lists={lists} onAssign={onAssignList} />
           )}
         </div>
       </div>
@@ -212,7 +189,7 @@ export const RepoCard = memo(function RepoCard({
       )}
 
       <div className="mt-auto pt-3">
-        {(repo.topics.length > 0 || tags.length > 0) && (
+        {repo.topics.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {repo.topics.slice(0, 4).map((topic) => (
               <Badge
@@ -221,15 +198,6 @@ export const RepoCard = memo(function RepoCard({
                 className="text-[10px] font-normal"
               >
                 {topic}
-              </Badge>
-            ))}
-            {tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className="text-[10px] font-normal"
-              >
-                {tag}
               </Badge>
             ))}
           </div>

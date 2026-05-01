@@ -13,6 +13,7 @@ export interface SimilarRepo {
   stargazers_count: number;
   topics: string[];
   list_id: number | null;
+  collection_ids?: number[];
   tags: string[];
   similarity: number;
 }

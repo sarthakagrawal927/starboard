@@ -1,13 +1,18 @@
 "use client";
 
+import {
+  Check,
+  Code2,
+  Link,
+  List,
+  Plus,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
-import { UserList } from "@/hooks/use-lists";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,16 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Code2,
-  List,
-  Plus,
-  Share2,
-  Check,
-  Link,
-  Trash2,
-  Tag as TagIcon,
-} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { UserList } from "@/hooks/use-lists";
 import { cn } from "@/lib/utils";
 
 const PRESET_COLORS = [
@@ -36,7 +36,6 @@ const PRESET_COLORS = [
 interface SidebarProps {
   languageFacets: [string, number][];
   listFacets: { id: number; name: string; color: string; count: number }[];
-  tagFacets: [string, number][];
   isLoading?: boolean;
   selectedLanguages: string[];
   onLanguageToggle: (language: string) => void;
@@ -46,8 +45,6 @@ interface SidebarProps {
   onCreateList: (name: string, color?: string) => Promise<unknown>;
   onDeleteList?: (id: number) => Promise<unknown>;
   onShareList?: (id: number) => Promise<{ is_public: boolean; slug: string }>;
-  selectedTag: string | null;
-  onTagSelect: (tag: string | null) => void;
 }
 
 function SidebarSkeleton() {
@@ -70,7 +67,7 @@ function SidebarSkeleton() {
 
       <Separator className="my-3" />
 
-      {/* Lists skeleton */}
+      {/* Collections skeleton */}
       <div className="flex items-center gap-2 px-2 py-1">
         <Skeleton className="size-4" />
         <Skeleton className="h-3 w-20" />
@@ -84,14 +81,6 @@ function SidebarSkeleton() {
         ))}
       </div>
 
-      <Separator className="my-3" />
-
-      {/* Tags skeleton */}
-      <div className="flex items-center gap-2 px-2 py-1">
-        <Skeleton className="size-4" />
-        <Skeleton className="h-3 w-12" />
-      </div>
-
     </div>
   );
 }
@@ -99,7 +88,6 @@ function SidebarSkeleton() {
 export function Sidebar({
   languageFacets,
   listFacets,
-  tagFacets,
   isLoading,
   selectedLanguages,
   onLanguageToggle,
@@ -109,8 +97,6 @@ export function Sidebar({
   onCreateList,
   onDeleteList,
   onShareList,
-  selectedTag,
-  onTagSelect,
 }: SidebarProps) {
   const [listDialogOpen, setListDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -163,7 +149,7 @@ export function Sidebar({
     if (!onDeleteList) return;
 
     const confirmed = window.confirm(
-      `Delete "${list.name}"? If it still exists on GitHub, it will be recreated on the next sync.`
+              `Delete "${list.name}"? Imported GitHub collections may be recreated on the next sync.`
     );
     if (!confirmed) return;
 
@@ -210,13 +196,13 @@ export function Sidebar({
 
           <Separator className="my-3" />
 
-          {/* Lists */}
+          {/* Collections */}
           <div className="flex items-center justify-between">
-            <SectionHeader icon={List} label="Lists" />
+            <SectionHeader icon={List} label="Collections" />
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="New List"
+              aria-label="New Collection"
               onClick={() => setListDialogOpen(true)}
             >
               <Plus className="size-3.5" />
@@ -295,51 +281,20 @@ export function Sidebar({
             })}
             {lists.length === 0 && (
               <p className="px-2 py-3 text-xs text-muted-foreground">
-                Create lists to organize your repos
+                Create collections to organize your repos
               </p>
             )}
           </div>
-
-          <Separator className="my-3" />
-
-          {/* Tags */}
-          <SectionHeader icon={TagIcon} label="Tags" />
-          <div className="mt-1 flex flex-col gap-0.5">
-            {tagFacets.map(([tag, count]) => (
-              <button
-                key={tag}
-                onClick={() =>
-                  onTagSelect(selectedTag === tag ? null : tag)
-                }
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-                  selectedTag === tag && "bg-accent text-accent-foreground"
-                )}
-              >
-                <TagIcon className="size-3 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{tag}</span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {count}
-                </span>
-              </button>
-            ))}
-            {tagFacets.length === 0 && (
-              <p className="px-2 py-3 text-xs text-muted-foreground">
-                Tags appear here when you add them to repos
-              </p>
-            )}
-          </div>
-
         </div>
       </ScrollArea>
 
-      {/* Create List Dialog */}
+      {/* Create Collection Dialog */}
       <Dialog open={listDialogOpen} onOpenChange={setListDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Create List</DialogTitle>
+            <DialogTitle>Create Collection</DialogTitle>
             <DialogDescription>
-              Add a new list to organize your starred repos.
+              Add a new collection to organize your repos.
             </DialogDescription>
           </DialogHeader>
 

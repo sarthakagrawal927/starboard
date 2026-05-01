@@ -1,5 +1,7 @@
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
+
 import { db } from "@/db";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   _request: NextRequest,
@@ -32,9 +34,9 @@ export async function GET(
     sql: `SELECT r.id, r.full_name, r.description, r.language,
                  r.stargazers_count, r.html_url, r.owner_login, r.owner_avatar,
                  r.topics
-          FROM user_repos ur
-          JOIN repos r ON r.id = ur.repo_id
-          WHERE ur.list_id = ? AND ur.user_id = ?`,
+          FROM user_repo_lists url
+          JOIN repos r ON r.id = url.repo_id
+          WHERE url.list_id = ? AND url.user_id = ?`,
     args: [row.id, row.user_id],
   });
 

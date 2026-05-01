@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS user_repos (
   PRIMARY KEY (user_id, repo_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_repo_lists (
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  repo_id    INTEGER NOT NULL REFERENCES repos(id),
+  list_id    INTEGER NOT NULL REFERENCES user_lists(id) ON DELETE CASCADE,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, repo_id, list_id)
+);
+
 CREATE TABLE IF NOT EXISTS comments (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   repo_id     INTEGER NOT NULL,
@@ -69,6 +77,8 @@ CREATE TABLE IF NOT EXISTS comment_votes (
 
 CREATE INDEX IF NOT EXISTS idx_user_repos_user ON user_repos(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_repos_list ON user_repos(user_id, list_id);
+CREATE INDEX IF NOT EXISTS idx_user_repo_lists_user_list ON user_repo_lists(user_id, list_id);
+CREATE INDEX IF NOT EXISTS idx_user_repo_lists_repo ON user_repo_lists(repo_id);
 CREATE INDEX IF NOT EXISTS idx_repos_language ON repos(language);
 CREATE INDEX IF NOT EXISTS idx_comments_repo ON comments(repo_id);
 CREATE INDEX IF NOT EXISTS idx_likes_repo ON likes(repo_id);
