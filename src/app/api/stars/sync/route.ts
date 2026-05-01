@@ -1,16 +1,16 @@
 import type { InStatement } from "@libsql/client";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
-import { buildRepoEmbeddingText, generateEmbeddings,textHash } from "@/lib/embeddings";
+import { buildRepoEmbeddingText, generateEmbeddings, textHash } from "@/lib/embeddings";
 import { fetchAllStarredRepos } from "@/lib/github";
 import {
   fetchPublicStarListRepoNames,
   fetchPublicStarLists,
   type GitHubStarList,
 } from "@/lib/github-lists";
+import { isRateLimited } from "@/lib/rate-limit";
 
 const BOGUS_IMPORTED_SORT_LISTS = new Set([
   "name ascending (a-z)",
@@ -35,9 +35,7 @@ export async function POST() {
 
   const userId = session.user.githubId;
 
-  const { env } = await getCloudflareContext();
-  const { success } = await env.RATE_LIMITER.limit({ key: userId });
-  if (!success) {
+  if (await isRateLimited(userId)) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
