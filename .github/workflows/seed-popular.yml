@@ -35,12 +35,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Run migrations
+        run: pnpm db:migrate
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
       - name: Run seed script
-        run: npx tsx scripts/seed-popular.ts
+        run: pnpm db:seed-popular
         env:
           # PAT with public_repo:read. Falls back to the runner's GITHUB_TOKEN
           # which has 1000/hr search quota — enough for a single daily run.
-          GITHUB_TOKEN: ${{ secrets.GH_SEED_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_SEED_TOKEN || github.token }}
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           AI_GATEWAY_URL: ${{ secrets.AI_GATEWAY_URL }}

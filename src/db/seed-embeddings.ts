@@ -1,10 +1,11 @@
+import type { InStatement } from "@libsql/client";
 import { createClient } from "@libsql/client";
+
 import {
   buildRepoEmbeddingText,
-  textHash,
   generateEmbeddings,
+  textHash,
 } from "../lib/embeddings";
-import type { InStatement } from "@libsql/client";
 
 const BATCH_SIZE = 50;
 

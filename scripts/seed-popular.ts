@@ -23,7 +23,8 @@
  *   MIN_STARS_FLOOR       — minimum stars to seed, default 5000
  */
 
-import { createClient, type Client, type InStatement } from "@libsql/client";
+import { type Client, createClient, type InStatement } from "@libsql/client";
+
 import {
   buildRepoEmbeddingText,
   generateEmbeddings,
@@ -35,6 +36,8 @@ const MIN_STARS_FLOOR = parseInt(process.env.MIN_STARS_FLOOR || "5000", 10);
 const PER_PAGE = 100;
 const MAX_PAGES_PER_BUCKET = 10; // GH search caps at 1000 results
 const BATCH_SIZE = 50;
+const DB_MAX_ATTEMPTS = 4;
+const DB_RETRY_BASE_MS = 1_000;
 
 interface GhRepo {
   id: number;
@@ -53,6 +56,43 @@ interface GhRepo {
 interface GhSearchResponse {
   total_count: number;
   items: GhRepo[];
+}
+
+function isRetryableDbError(err: unknown): boolean {
+  const cause = (err as { cause?: { code?: string } })?.cause;
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    cause?.code === "UND_ERR_CONNECT_TIMEOUT" ||
+    message.includes("fetch failed") ||
+    message.includes("Connect Timeout") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ETIMEDOUT")
+  );
+}
+
+async function withDbRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= DB_MAX_ATTEMPTS || !isRetryableDbError(err)) {
+        throw err;
+      }
+      const waitMs = DB_RETRY_BASE_MS * 2 ** (attempt - 1);
+      console.warn(
+        `[db] ${label} failed on attempt ${attempt}; retrying in ${waitMs}ms`
+      );
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+}
+
+function executeDb(db: Client, stmt: InStatement | string) {
+  return withDbRetry("execute", () => db.execute(stmt));
+}
+
+function batchDb(db: Client, stmts: InStatement[]) {
+  return withDbRetry("batch", () => db.batch(stmts));
 }
 
 async function ghSearch(
@@ -114,12 +154,12 @@ async function upsertRepos(db: Client, repos: GhRepo[]): Promise<number[]> {
       r.updated_at,
     ],
   }));
-  await db.batch(stmts);
+  await batchDb(db, stmts);
   return repos.map((r) => r.id);
 }
 
 async function embedPending(db: Client, limit: number): Promise<number> {
-  const pending = await db.execute({
+  const pending = await executeDb(db, {
     sql: `SELECT r.id, r.full_name, r.description, r.language, r.topics, re.text_hash
           FROM repos r
           LEFT JOIN repo_embeddings re ON re.repo_id = r.id
@@ -157,7 +197,7 @@ async function embedPending(db: Client, limit: number): Promise<number> {
               text_hash = excluded.text_hash`,
       args: [item.id, JSON.stringify(embeddings[j]), item.hash],
     }));
-    await db.batch(stmts);
+    await batchDb(db, stmts);
     console.log(
       `  embedded ${i + batch.length}/${toEmbed.length} (${batch.length} this batch)`
     );
@@ -167,9 +207,9 @@ async function embedPending(db: Client, limit: number): Promise<number> {
 }
 
 async function loadCursor(db: Client) {
-  const r = await db.execute("SELECT * FROM seed_cursor WHERE id = 1");
+  const r = await executeDb(db, "SELECT * FROM seed_cursor WHERE id = 1");
   if (r.rows.length === 0) {
-    await db.execute("INSERT INTO seed_cursor (id) VALUES (1)");
+    await executeDb(db, "INSERT INTO seed_cursor (id) VALUES (1)");
     return { next_max_stars: 999999999, next_page: 1 };
   }
   return {
@@ -179,7 +219,7 @@ async function loadCursor(db: Client) {
 }
 
 async function saveCursor(db: Client, next_max_stars: number, next_page: number) {
-  await db.execute({
+  await executeDb(db, {
     sql: `UPDATE seed_cursor
           SET next_max_stars = ?, next_page = ?, updated_at = datetime('now')
           WHERE id = 1`,
@@ -210,6 +250,7 @@ async function walkAndUpsert(db: Client, ghToken: string) {
     const result = await ghSearch(q, page, ghToken);
 
     if (result.items.length === 0) {
+      if (page === 1) break;
       const newMax = lowestSeenInBucket - 1;
       if (newMax < MIN_STARS_FLOOR || newMax === max_stars) break;
       max_stars = newMax;
@@ -258,7 +299,8 @@ async function main() {
   const embedded = await embedPending(db, DAILY_LIMIT);
   console.log(`[embed] generated ${embedded} embeddings`);
 
-  const totals = await db.execute(
+  const totals = await executeDb(
+    db,
     `SELECT
        (SELECT COUNT(*) FROM repos WHERE stargazers_count >= ${MIN_STARS_FLOOR}) AS repos_in_pool,
        (SELECT COUNT(*) FROM repo_embeddings re
