@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed-embeddings": "tsx src/db/seed-embeddings.ts",
+    "db:embed-pending": "tsx src/db/seed-embeddings.ts",
     "db:seed-popular": "tsx scripts/seed-popular.ts",
     "cf:build": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
     "build:cf": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",
