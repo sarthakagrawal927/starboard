@@ -160,6 +160,15 @@ function DiscoverContent() {
     mutate();
   }, [assignRepoToList, mutate]);
 
+  const handleToggleSave = useCallback(async (repoId: number, saved: boolean) => {
+    await fetch(`/api/repos/${repoId}/save`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ saved }),
+    });
+    mutate();
+  }, [mutate]);
+
   const handleDeleteList = useCallback(async (id: number) => {
     await deleteList(id);
     if (selectedListId === id) {
@@ -238,6 +247,7 @@ function DiscoverContent() {
               onRemoveTag={removeTag}
               lists={lists}
               onAssignList={handleAssignList}
+              onToggleSave={handleToggleSave}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
               hasMore={hasMore}

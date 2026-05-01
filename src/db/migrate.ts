@@ -21,6 +21,7 @@ async function migrate() {
     "ALTER TABLE user_lists ADD COLUMN slug TEXT",
     "ALTER TABLE user_lists ADD COLUMN description TEXT",
     "ALTER TABLE user_repos ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE user_repos ADD COLUMN is_saved INTEGER NOT NULL DEFAULT 0",
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* column already exists */ }
@@ -36,6 +37,10 @@ async function migrate() {
   for (const statement of statements) {
     await db.execute(statement);
   }
+
+  await db.execute(
+    "UPDATE user_repos SET is_saved = 1 WHERE list_id IS NOT NULL OR tags != '[]' OR notes IS NOT NULL"
+  );
 
   console.info("Migration complete");
   process.exit(0);

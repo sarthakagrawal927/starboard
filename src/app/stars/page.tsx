@@ -1,24 +1,25 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useQueryState, parseAsString, parseAsStringLiteral, parseAsArrayOf } from "nuqs";
-import { useStarredRepos } from "@/hooks/use-starred-repos";
-import { useLists } from "@/hooks/use-lists";
-import { useRepoTags } from "@/hooks/use-repo-tags";
-import { TopBar } from "@/components/top-bar";
-import { Sidebar } from "@/components/sidebar";
+import { useSession } from "next-auth/react";
+import { parseAsArrayOf, parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
+import { Suspense, useCallback, useEffect, useState } from "react";
+
 import { RepoGrid } from "@/components/repo-grid";
+import { Sidebar } from "@/components/sidebar";
 import { SyncAnimation, SyncProgressBar } from "@/components/sync-animation";
+import { TopBar } from "@/components/top-bar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
-  SheetTitle,
   SheetDescription,
+  SheetTitle,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useLists } from "@/hooks/use-lists";
+import { useRepoTags } from "@/hooks/use-repo-tags";
+import { useStarredRepos } from "@/hooks/use-starred-repos";
 
 const sortOptions = ["recently-starred", "most-stars", "recently-updated", "name-az"] as const;
 
@@ -164,6 +165,15 @@ function StarsContent() {
     mutate();
   }, [assignRepoToList, mutate]);
 
+  const handleToggleSave = useCallback(async (repoId: number, saved: boolean) => {
+    await fetch(`/api/repos/${repoId}/save`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ saved }),
+    });
+    mutate();
+  }, [mutate]);
+
   const handleDeleteList = useCallback(async (id: number) => {
     await deleteList(id);
     if (selectedListId === id) {
@@ -281,9 +291,9 @@ function StarsContent() {
           <svg viewBox="0 0 24 24" className="size-12 fill-muted-foreground/30" aria-hidden="true">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
-          <p className="text-lg font-medium">No stars synced yet</p>
+          <p className="text-lg font-medium">No library repos yet</p>
           <p className="text-sm text-muted-foreground">
-            Fetch your GitHub starred repos to get started.
+            Sync your GitHub stars or save repos from Discover to get started.
           </p>
           <button
             onClick={sync}
@@ -303,7 +313,7 @@ function StarsContent() {
           <SheetContent side="left" className="w-[280px] p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
             <SheetDescription className="sr-only">
-              Filter starred repositories by language, list, and tags.
+              Filter library repositories by language, list, and tags.
             </SheetDescription>
             {sidebarContent}
           </SheetContent>
@@ -322,6 +332,7 @@ function StarsContent() {
               onRemoveTag={removeTag}
               lists={lists}
               onAssignList={handleAssignList}
+              onToggleSave={handleToggleSave}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={clearFilters}
               hasMore={hasMore}

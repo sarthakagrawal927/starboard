@@ -1,13 +1,14 @@
 "use client";
 
-import { memo } from "react";
+import { Bookmark, Star } from "lucide-react";
 import Link from "next/link";
-import { UserRepo } from "@/hooks/use-starred-repos";
-import { Badge } from "@/components/ui/badge";
-import { Star } from "lucide-react";
-import { TagPicker } from "@/components/tag-picker";
+import { memo } from "react";
+
 import { ListPicker } from "@/components/list-picker";
+import { TagPicker } from "@/components/tag-picker";
+import { Badge } from "@/components/ui/badge";
 import type { UserList } from "@/hooks/use-lists";
+import type { UserRepo } from "@/hooks/use-starred-repos";
 import { getAvatarImageAttrs } from "@/lib/avatar";
 
 const languageColors: Record<string, string> = {
@@ -58,6 +59,7 @@ interface RepoCardProps {
   onRemoveTag?: (repoId: number, tag: string) => void;
   lists?: UserList[];
   onAssignList?: (repoId: number, listId: number | null) => void;
+  onToggleSave?: (repoId: number, saved: boolean) => void;
   viewMode?: "grid" | "list";
 }
 
@@ -69,6 +71,7 @@ export const RepoCard = memo(function RepoCard({
   onRemoveTag,
   lists,
   onAssignList,
+  onToggleSave,
   viewMode = "grid",
 }: RepoCardProps) {
   const langColor = repo.language
@@ -91,6 +94,18 @@ export const RepoCard = memo(function RepoCard({
       decoding="async"
     />
   );
+  const isSaved = Boolean(repo.is_saved);
+  const saveButton = onToggleSave ? (
+    <button
+      type="button"
+      onClick={() => onToggleSave(repo.id, !isSaved)}
+      className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent-foreground/10 hover:text-foreground"
+      title={isSaved ? "Remove from library" : "Save to library"}
+      aria-label={isSaved ? "Remove from library" : "Save to library"}
+    >
+      <Bookmark className={`size-3.5${isSaved ? " fill-current text-primary" : ""}`} />
+    </button>
+  ) : null;
 
   if (viewMode === "list") {
     return (
@@ -108,6 +123,7 @@ export const RepoCard = memo(function RepoCard({
               {repo.name}
             </Link>
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+              {saveButton}
               {lists && onAssignList && (
                 <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
               )}
@@ -179,6 +195,7 @@ export const RepoCard = memo(function RepoCard({
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {saveButton}
           {lists && onAssignList && (
             <ListPicker repoId={repo.id} currentListId={repo.list_id} lists={lists} onAssign={onAssignList} />
           )}

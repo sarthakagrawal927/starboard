@@ -30,6 +30,7 @@ export interface UserRepo {
   notes: string | null;
   starred_at: string | null;
   is_starred?: boolean;
+  is_saved?: boolean;
 }
 
 export interface Facets {

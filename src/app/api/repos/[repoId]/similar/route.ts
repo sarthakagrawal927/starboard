@@ -1,6 +1,7 @@
-import { auth } from "@/lib/auth";
+import { type NextRequest, NextResponse } from "next/server";
+
 import { db } from "@/db";
-import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
 const VEC_TOP_K = 60;
 const DIST_MAX = 0.55;
@@ -24,7 +25,7 @@ export async function GET(
 
   const limitParam = request.nextUrl.searchParams.get("limit");
   const limit = Math.min(Math.max(parseInt(limitParam || "", 10) || DEFAULT_LIMIT, 1), 30);
-  const scope = request.nextUrl.searchParams.get("scope") || "user"; // "user" | "global"
+  const scope = request.nextUrl.searchParams.get("scope") || "global"; // "user" | "global"
 
   try {
     // 1. Fetch this repo's embedding.

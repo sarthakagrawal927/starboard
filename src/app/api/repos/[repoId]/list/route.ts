@@ -18,11 +18,12 @@ export async function PUT(
   const listId = body.listId;
 
   await db.execute({
-    sql: `INSERT INTO user_repos (user_id, repo_id, list_id, is_starred)
-          VALUES (?, ?, ?, 0)
+    sql: `INSERT INTO user_repos (user_id, repo_id, list_id, is_starred, is_saved)
+          VALUES (?, ?, ?, 0, ?)
           ON CONFLICT(user_id, repo_id) DO UPDATE SET
-            list_id = excluded.list_id`,
-    args: [session.user.githubId, parseInt(repoId, 10), listId ?? null],
+            list_id = excluded.list_id,
+            is_saved = CASE WHEN excluded.list_id IS NULL THEN user_repos.is_saved ELSE 1 END`,
+    args: [session.user.githubId, parseInt(repoId, 10), listId ?? null, listId == null ? 0 : 1],
   });
 
   return NextResponse.json({ success: true });

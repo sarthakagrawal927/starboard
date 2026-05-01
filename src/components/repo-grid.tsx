@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useMemo, useState, useEffect, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { UserRepo } from "@/hooks/use-starred-repos";
-import type { UserList } from "@/hooks/use-lists";
+import { Inbox, Loader2, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { RepoCard } from "@/components/repo-card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Inbox, RotateCcw, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { UserList } from "@/hooks/use-lists";
+import type { UserRepo } from "@/hooks/use-starred-repos";
 
 function widthToColumns(width: number): number {
   if (width >= 1024) return 3;
@@ -26,6 +27,7 @@ interface RepoGridProps {
   onRemoveTag?: (repoId: number, tag: string) => void;
   lists?: UserList[];
   onAssignList?: (repoId: number, listId: number | null) => void;
+  onToggleSave?: (repoId: number, saved: boolean) => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   hasMore?: boolean;
@@ -84,6 +86,7 @@ export function RepoGrid({
   onRemoveTag,
   lists,
   onAssignList,
+  onToggleSave,
   hasActiveFilters,
   onClearFilters,
   hasMore,
@@ -233,6 +236,7 @@ export function RepoGrid({
                     onRemoveTag={onRemoveTag}
                     lists={lists}
                     onAssignList={onAssignList}
+                    onToggleSave={onToggleSave}
                   />
                 );
               })}

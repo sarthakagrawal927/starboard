@@ -101,17 +101,6 @@ export function TopBar({
       <div className="hidden shrink-0 items-center rounded-md border p-0.5 sm:flex">
         <Button
           asChild
-          variant={!isDiscover ? "secondary" : "ghost"}
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
-        >
-          <Link href="/stars">
-            <Star className="size-3.5" />
-            Stars
-          </Link>
-        </Button>
-        <Button
-          asChild
           variant={isDiscover ? "secondary" : "ghost"}
           size="sm"
           className="h-7 gap-1.5 px-2 text-xs"
@@ -119,6 +108,17 @@ export function TopBar({
           <Link href="/discover">
             <Database className="size-3.5" />
             Discover
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant={!isDiscover ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <Link href="/stars">
+            <Star className="size-3.5" />
+            Library
           </Link>
         </Button>
       </div>

@@ -7,6 +7,8 @@ import { generateEmbedding } from "@/lib/embeddings";
 import { rrfFuse } from "@/lib/search";
 
 const MIN_STARS_FLOOR = 5000;
+const ELIGIBLE_REPO_SQL =
+  "(r.stargazers_count >= ? OR EXISTS (SELECT 1 FROM user_repos community_ur WHERE community_ur.repo_id = r.id AND community_ur.is_starred = 1))";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(parseInt(params.get("limit") || "50", 10) || 50, 1), 200);
   const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
 
-  const whereClauses: string[] = ["r.stargazers_count >= ?"];
+  const whereClauses: string[] = [ELIGIBLE_REPO_SQL];
   const whereArgs: InValue[] = [MIN_STARS_FLOOR];
 
   let rankedRepoIds: number[] | null = null;
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
                      ELSE 4
                    END AS priority
             FROM repos r
-            WHERE r.stargazers_count >= ?
+            WHERE ${ELIGIBLE_REPO_SQL}
               AND (r.name        LIKE ? COLLATE NOCASE
                 OR r.full_name   LIKE ? COLLATE NOCASE
                 OR r.description LIKE ? COLLATE NOCASE
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
               FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
               JOIN repo_embeddings re ON re.rowid = vt.id
               JOIN repos r ON r.id = re.repo_id
-              WHERE r.stargazers_count >= ?
+              WHERE ${ELIGIBLE_REPO_SQL}
               ORDER BY dist ASC`,
         args: [
           JSON.stringify(queryEmbedding),
@@ -145,7 +147,8 @@ export async function GET(request: NextRequest) {
                    COALESCE(ur.tags, '[]') AS tags,
                    ur.notes,
                    ur.starred_at,
-                   COALESCE(ur.is_starred, 0) AS is_starred
+                   COALESCE(ur.is_starred, 0) AS is_starred,
+                   COALESCE(ur.is_saved, 0) AS is_saved
             FROM repos r
             LEFT JOIN user_repos ur ON ur.user_id = ? AND ur.repo_id = r.id
             WHERE ${whereSQL}
@@ -165,7 +168,7 @@ export async function GET(request: NextRequest) {
     const languageFacetQuery: InStatement = {
       sql: `SELECT r.language, COUNT(*) as count
             FROM repos r
-            WHERE r.stargazers_count >= ? AND r.language IS NOT NULL AND r.language != ''
+            WHERE ${ELIGIBLE_REPO_SQL} AND r.language IS NOT NULL AND r.language != ''
             GROUP BY r.language
             ORDER BY count DESC`,
       args: [MIN_STARS_FLOOR],
@@ -175,7 +178,7 @@ export async function GET(request: NextRequest) {
       sql: `SELECT ul.id, ul.name, ul.color, COUNT(r.id) as count
             FROM user_lists ul
             LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id
-            LEFT JOIN repos r ON r.id = ur.repo_id AND r.stargazers_count >= ?
+            LEFT JOIN repos r ON r.id = ur.repo_id AND ${ELIGIBLE_REPO_SQL}
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
@@ -186,7 +189,7 @@ export async function GET(request: NextRequest) {
       sql: `SELECT ur.tags
             FROM user_repos ur
             JOIN repos r ON r.id = ur.repo_id
-            WHERE ur.user_id = ? AND r.stargazers_count >= ? AND ur.tags != '[]'`,
+            WHERE ur.user_id = ? AND ${ELIGIBLE_REPO_SQL} AND ur.tags != '[]'`,
       args: [userId, MIN_STARS_FLOOR],
     };
 
@@ -217,6 +220,7 @@ export async function GET(request: NextRequest) {
       notes: row["notes"] as string | null,
       starred_at: row["starred_at"] as string | null,
       is_starred: Boolean(row["is_starred"]),
+      is_saved: Boolean(row["is_saved"]),
     }));
 
     const languages = langResult.rows.map((r) => [

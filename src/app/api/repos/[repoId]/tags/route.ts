@@ -51,11 +51,12 @@ export async function PUT(
   }
 
   await db.execute({
-    sql: `INSERT INTO user_repos (user_id, repo_id, tags, is_starred)
-          VALUES (?, ?, ?, 0)
+    sql: `INSERT INTO user_repos (user_id, repo_id, tags, is_starred, is_saved)
+          VALUES (?, ?, ?, 0, ?)
           ON CONFLICT(user_id, repo_id) DO UPDATE SET
-            tags = excluded.tags`,
-    args: [session.user.githubId, parseInt(repoId, 10), JSON.stringify(tags)],
+            tags = excluded.tags,
+            is_saved = CASE WHEN excluded.tags = '[]' THEN user_repos.is_saved ELSE 1 END`,
+    args: [session.user.githubId, parseInt(repoId, 10), JSON.stringify(tags), tags.length > 0 ? 1 : 0],
   });
 
   return NextResponse.json({ tags });

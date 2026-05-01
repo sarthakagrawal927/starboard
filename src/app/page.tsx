@@ -1,11 +1,12 @@
-import { SignInButton } from "@/components/sign-in-button";
-import { SaaSMakerTestimonials, SaaSMakerChangelog } from "@/components/saasmaker-feedback";
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+
+import { SaaSMakerChangelog, SaaSMakerTestimonials } from "@/components/saasmaker-feedback";
+import { SignInButton } from "@/components/sign-in-button";
+import { auth } from "@/lib/auth";
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect("/stars");
+  if (session) redirect("/discover");
   return (
     <div className="flex min-h-svh flex-col items-center bg-background dark:bg-[oklch(0.1_0_0)]">
       <main className="flex w-full max-w-4xl flex-col items-center gap-16 px-6 py-24">
@@ -15,7 +16,7 @@ export default async function Home() {
             Starboard
           </h1>
           <p className="max-w-md text-lg text-muted-foreground sm:text-xl">
-            Your GitHub stars, organized.
+            Discover and organize high-quality open-source repositories.
           </p>
           <div className="pt-4">
             <SignInButton />
@@ -26,15 +27,15 @@ export default async function Home() {
         <div className="grid w-full max-w-2xl gap-6 sm:grid-cols-3">
           <FeatureCard
             title="Filter"
-            description="Filter by language, topics, and full-text search."
+            description="Search popular and community-starred repositories."
           />
           <FeatureCard
-            title="Categorize"
-            description="Smart auto-categories plus custom tags."
+            title="Discover"
+            description="Find similar repos with semantic search and embeddings."
           />
           <FeatureCard
             title="Organize"
-            description="Tag repos with custom colored labels."
+            description="Save repos to your library, lists, and tags."
           />
         </div>
 
