@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/embeddings";
-import { rrfFuse } from "@/lib/search";
+import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
 
 const MIN_STARS_FLOOR = 5000;
 const ELIGIBLE_REPO_SQL =
@@ -33,9 +33,42 @@ export async function GET(request: NextRequest) {
   let rankedRepoIds: number[] | null = null;
   if (q) {
     const pattern = `%${q}%`;
+    const tokenPatterns = searchTerms(q).map((term) => `%${term}%`);
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55;
+    const lexicalClauses = [
+      "r.name LIKE ? COLLATE NOCASE",
+      "r.full_name LIKE ? COLLATE NOCASE",
+      "r.description LIKE ? COLLATE NOCASE",
+      "r.topics LIKE ? COLLATE NOCASE",
+    ];
+    const tokenLexicalSql = tokenPatterns
+      .map(() => `(${lexicalClauses.join(" OR ")})`)
+      .join(" OR ");
+    const tokenScoreSql = tokenPatterns
+      .map(
+        () => `(CASE
+                   WHEN r.name LIKE ? COLLATE NOCASE THEN 20
+                   WHEN r.full_name LIKE ? COLLATE NOCASE THEN 14
+                   WHEN r.topics LIKE ? COLLATE NOCASE THEN 6
+                   WHEN r.description LIKE ? COLLATE NOCASE THEN 3
+                   ELSE 0
+                 END)`
+      )
+      .join(" + ");
+    const tokenWhereArgs = tokenPatterns.flatMap((token) => [
+      token,
+      token,
+      token,
+      token,
+    ]);
+    const tokenScoreArgs = tokenPatterns.flatMap((token) => [
+      token,
+      token,
+      token,
+      token,
+    ]);
 
     const lexResult = await db.execute({
       sql: `SELECT r.id,
@@ -45,32 +78,36 @@ export async function GET(request: NextRequest) {
                      WHEN r.description LIKE ? COLLATE NOCASE THEN 2
                      WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
                      ELSE 4
-                   END AS priority
+                   END AS priority,
+                   ${tokenScoreSql || "0"} AS token_score
             FROM repos r
             WHERE ${ELIGIBLE_REPO_SQL}
-              AND (r.name        LIKE ? COLLATE NOCASE
+              AND ((r.name        LIKE ? COLLATE NOCASE
                 OR r.full_name   LIKE ? COLLATE NOCASE
                 OR r.description LIKE ? COLLATE NOCASE
                 OR r.topics      LIKE ? COLLATE NOCASE)
-            ORDER BY priority ASC, r.stargazers_count DESC
+                ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})
+            ORDER BY token_score DESC, priority ASC, r.stargazers_count DESC
             LIMIT 500`,
       args: [
         pattern,
         pattern,
         pattern,
         pattern,
+        ...tokenScoreArgs,
         MIN_STARS_FLOOR,
         pattern,
         pattern,
         pattern,
         pattern,
+        ...tokenWhereArgs,
       ],
     });
     const lexIds = lexResult.rows.map((r) => r["id"] as number);
 
     let semIds: number[] = [];
     try {
-      const queryEmbedding = await generateEmbedding(q);
+      const queryEmbedding = await generateEmbedding(expandedSearchQuery(q));
       const vectorResult = await db.execute({
         sql: `SELECT re.repo_id,
                      vector_distance_cos(re.embedding, vector(?)) AS dist
@@ -101,9 +138,10 @@ export async function GET(request: NextRequest) {
       whereArgs.push(...fused);
     } else {
       whereClauses.push(
-        "(r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE)"
+        `((r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE)
+          ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})`
       );
-      whereArgs.push(pattern, pattern, pattern, pattern);
+      whereArgs.push(pattern, pattern, pattern, pattern, ...tokenWhereArgs);
     }
   }
 

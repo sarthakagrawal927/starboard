@@ -1,7 +1,7 @@
-import { describe, expect,it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { cosineSimilarity } from "@/lib/embeddings";
-import { rrfFuse } from "@/lib/search";
+import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
 
 describe("rrfFuse", () => {
   it("returns empty for empty input", () => {
@@ -47,6 +47,41 @@ describe("rrfFuse", () => {
     ]);
     expect(new Set(result).size).toBe(result.length);
     expect(result.length).toBe(3);
+  });
+});
+
+describe("searchTerms", () => {
+  it("expands LangChain replacement queries", () => {
+    const terms = searchTerms("top lan-chain replacements");
+
+    expect(terms).toContain("lanchain");
+    expect(terms).toContain("langchain");
+    expect(terms).toContain("llamaindex");
+    expect(terms).toContain("llama_index");
+    expect(terms).toContain("haystack");
+    expect(terms).toContain("crewai");
+    expect(terms).toContain("semantic-kernel");
+  });
+
+  it("expands eval platform queries", () => {
+    const terms = searchTerms("top eval platforms");
+
+    expect(terms).toContain("eval");
+    expect(terms).toContain("evaluation");
+    expect(terms).toContain("promptfoo");
+    expect(terms).toContain("deepeval");
+    expect(terms).toContain("langfuse");
+    expect(terms).toContain("opik");
+    expect(terms).toContain("trulens");
+  });
+
+  it("builds an expanded semantic query", () => {
+    const query = expandedSearchQuery("top lan-chain replacements");
+
+    expect(query).toContain("lan-chain");
+    expect(query).toContain("langchain");
+    expect(query).toContain("llamaindex");
+    expect(query).toContain("crewai");
   });
 });
 

@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/embeddings";
-import { rrfFuse } from "@/lib/search";
+import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
 
 // Cache embedding existence check per user (5 min TTL)
 const embeddingCheckCache = new Map<string, { value: boolean; expires: number }>();
@@ -47,9 +47,46 @@ export async function GET(request: NextRequest) {
   let rankedRepoIds: number[] | null = null;
   if (q) {
     const pattern = `%${q}%`;
+    const tokenPatterns = searchTerms(q).map((term) => `%${term}%`);
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55; // cosine distance cutoff (lower = more similar)
+    const lexicalClauses = [
+      "r.name LIKE ? COLLATE NOCASE",
+      "r.full_name LIKE ? COLLATE NOCASE",
+      "r.description LIKE ? COLLATE NOCASE",
+      "r.topics LIKE ? COLLATE NOCASE",
+      "ur.notes LIKE ? COLLATE NOCASE",
+    ];
+    const tokenLexicalSql = tokenPatterns
+      .map(() => `(${lexicalClauses.join(" OR ")})`)
+      .join(" OR ");
+    const tokenScoreSql = tokenPatterns
+      .map(
+        () => `(CASE
+                   WHEN r.name LIKE ? COLLATE NOCASE THEN 20
+                   WHEN r.full_name LIKE ? COLLATE NOCASE THEN 14
+                   WHEN r.topics LIKE ? COLLATE NOCASE THEN 6
+                   WHEN r.description LIKE ? COLLATE NOCASE THEN 3
+                   WHEN ur.notes LIKE ? COLLATE NOCASE THEN 2
+                   ELSE 0
+                 END)`
+      )
+      .join(" + ");
+    const tokenWhereArgs = tokenPatterns.flatMap((token) => [
+      token,
+      token,
+      token,
+      token,
+      token,
+    ]);
+    const tokenScoreArgs = tokenPatterns.flatMap((token) => [
+      token,
+      token,
+      token,
+      token,
+      token,
+    ]);
 
     // 1. Lexical matches across name, full_name, description, topics, notes.
     //    NOCASE for case-insensitive. Order by column priority (name > full_name > rest).
@@ -62,19 +99,23 @@ export async function GET(request: NextRequest) {
                      WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
                      WHEN ur.notes      LIKE ? COLLATE NOCASE THEN 4
                      ELSE 6
-                   END AS priority
+                   END AS priority,
+                   ${tokenScoreSql || "0"} AS token_score
             FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
             WHERE ur.user_id = ?
-              AND (r.name        LIKE ? COLLATE NOCASE
+              AND ((r.name        LIKE ? COLLATE NOCASE
                 OR r.full_name   LIKE ? COLLATE NOCASE
                 OR r.description LIKE ? COLLATE NOCASE
                 OR r.topics      LIKE ? COLLATE NOCASE
                 OR ur.notes      LIKE ? COLLATE NOCASE)
-            ORDER BY priority ASC`,
+                ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})
+            ORDER BY token_score DESC, priority ASC`,
       args: [
         pattern, pattern, pattern, pattern, pattern,
+        ...tokenScoreArgs,
         userId,
         pattern, pattern, pattern, pattern, pattern,
+        ...tokenWhereArgs,
       ],
     });
     const lexIds = lexResult.rows.map((r) => r.id as number);
@@ -84,7 +125,7 @@ export async function GET(request: NextRequest) {
     let semIds: number[] = [];
     try {
       if (await hasEmbeddings(userId)) {
-        const queryEmbedding = await generateEmbedding(q);
+        const queryEmbedding = await generateEmbedding(expandedSearchQuery(q));
         const vectorResult = await db.execute({
           sql: `SELECT re.repo_id,
                        vector_distance_cos(re.embedding, vector(?)) AS dist
@@ -116,9 +157,10 @@ export async function GET(request: NextRequest) {
     } else {
       // No matches — keep LIKE so we don't return the whole library.
       whereClauses.push(
-        "(r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)"
+        `((r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)
+          ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})`
       );
-      whereArgs.push(pattern, pattern, pattern, pattern, pattern);
+      whereArgs.push(pattern, pattern, pattern, pattern, pattern, ...tokenWhereArgs);
     }
   }
 
