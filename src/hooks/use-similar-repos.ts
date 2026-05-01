@@ -22,16 +22,16 @@ interface Response {
   reason?: string;
 }
 
-const fetcher = (url: string) =>
+const fetcher = async <T>(url: string): Promise<T> =>
   fetch(url).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
+    return r.json() as Promise<T>;
   });
 
 export function useSimilarRepos(repoId: number | null | undefined, limit = 8) {
   const { data, error, isLoading } = useSWR<Response>(
     repoId ? `/api/repos/${repoId}/similar?limit=${limit}` : null,
-    fetcher,
+    fetcher<Response>,
     {
       revalidateOnFocus: false,
       dedupingInterval: 60_000 * 10,

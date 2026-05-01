@@ -2,10 +2,10 @@
 
 import useSWR from "swr";
 
-const fetcher = (url: string) =>
+const fetcher = async <T>(url: string): Promise<T> =>
   fetch(url).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
+    return r.json() as Promise<T>;
   });
 
 export interface UserList {
@@ -22,7 +22,7 @@ export interface UserList {
 }
 
 export function useLists() {
-  const { data, error, isLoading, mutate } = useSWR<UserList[]>("/api/lists", fetcher);
+  const { data, error, isLoading, mutate } = useSWR<UserList[]>("/api/lists", fetcher<UserList[]>);
 
   const createList = async (name: string, color?: string) => {
     const res = await fetch("/api/lists", {

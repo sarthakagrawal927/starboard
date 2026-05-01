@@ -1,4 +1,4 @@
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
@@ -19,7 +19,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid list id" }, { status: 400 });
   }
 
-  const body = await request.json();
+  const body = (await request.json()) as {
+    name?: unknown;
+    color?: unknown;
+    icon?: unknown;
+    position?: unknown;
+    is_public?: unknown;
+    slug?: unknown;
+    description?: unknown;
+  };
   const updates: string[] = [];
   const args: (string | number | null)[] = [];
 
@@ -39,7 +47,7 @@ export async function PATCH(
     if (body.icon !== null && (typeof body.icon !== "string" || body.icon.length > 50)) {
       return NextResponse.json({ error: "icon must be null or a string (max 50 chars)" }, { status: 400 });
     }
-    updates.push("icon = ?"); args.push(body.icon);
+    updates.push("icon = ?"); args.push(body.icon as string | null);
   }
   if (body.position !== undefined) {
     if (typeof body.position !== "number" || !Number.isInteger(body.position) || body.position < 0) {
@@ -52,13 +60,13 @@ export async function PATCH(
     if (body.slug !== null && (typeof body.slug !== "string" || !/^[a-z0-9-]{1,100}$/.test(body.slug))) {
       return NextResponse.json({ error: "slug must be null or a lowercase alphanumeric-dash string (max 100 chars)" }, { status: 400 });
     }
-    updates.push("slug = ?"); args.push(body.slug);
+    updates.push("slug = ?"); args.push(body.slug as string | null);
   }
   if (body.description !== undefined) {
     if (body.description !== null && (typeof body.description !== "string" || body.description.length > 500)) {
       return NextResponse.json({ error: "description must be null or a string (max 500 chars)" }, { status: 400 });
     }
-    updates.push("description = ?"); args.push(body.description);
+    updates.push("description = ?"); args.push(body.description as string | null);
   }
 
   if (updates.length === 0) {

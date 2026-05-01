@@ -63,7 +63,7 @@ export async function POST() {
     const freshIds = new Set(freshRepos.map((r) => r.id));
 
     const existing = await db.execute({
-      sql: "SELECT repo_id FROM user_repos WHERE user_id = ?",
+      sql: "SELECT repo_id FROM user_repos WHERE user_id = ? AND is_starred = 1",
       args: [userId],
     });
     const existingIds = new Set(existing.rows.map((r) => r.repo_id as number));
@@ -98,14 +98,20 @@ export async function POST() {
 
     for (const repo of added) {
       statements.push({
-        sql: "INSERT OR IGNORE INTO user_repos (user_id, repo_id) VALUES (?, ?)",
+        sql: `INSERT INTO user_repos (user_id, repo_id, is_starred, starred_at)
+              VALUES (?, ?, 1, datetime('now'))
+              ON CONFLICT(user_id, repo_id) DO UPDATE SET
+                is_starred = 1,
+                starred_at = COALESCE(user_repos.starred_at, datetime('now'))`,
         args: [userId, repo.id],
       });
     }
 
     for (const repoId of removedIds) {
       statements.push({
-        sql: "DELETE FROM user_repos WHERE user_id = ? AND repo_id = ?",
+        sql: `UPDATE user_repos
+              SET is_starred = 0, starred_at = NULL
+              WHERE user_id = ? AND repo_id = ?`,
         args: [userId, repoId],
       });
     }
@@ -188,7 +194,7 @@ async function syncGitHubLists(
     const existingListsResult = await db.execute({
       sql: `SELECT ul.id, ul.name, ul.description, ul.color, ul.position, COUNT(ur.repo_id) as repo_count
             FROM user_lists ul
-            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id
+            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id AND ur.is_starred = 1
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
@@ -294,7 +300,7 @@ async function syncGitHubLists(
 
     const placeholders = importedListIds.map(() => "?").join(",");
     const currentAssignmentsResult = await db.execute({
-      sql: `SELECT repo_id, list_id FROM user_repos WHERE user_id = ? AND list_id IN (${placeholders})`,
+      sql: `SELECT repo_id, list_id FROM user_repos WHERE user_id = ? AND is_starred = 1 AND list_id IN (${placeholders})`,
       args: [userId, ...importedListIds],
     });
     const currentAssignments = new Map<number, number>(
@@ -306,7 +312,7 @@ async function syncGitHubLists(
 
       if (currentAssignments.size > 0) {
         await db.execute({
-          sql: `UPDATE user_repos SET list_id = NULL WHERE user_id = ? AND list_id IN (${placeholders})`,
+          sql: `UPDATE user_repos SET list_id = NULL WHERE user_id = ? AND is_starred = 1 AND list_id IN (${placeholders})`,
           args: [userId, ...importedListIds],
         });
       }
@@ -315,7 +321,7 @@ async function syncGitHubLists(
         const assignmentStatements: InStatement[] = [];
         for (const [repoId, listId] of desiredAssignments) {
           assignmentStatements.push({
-            sql: "UPDATE user_repos SET list_id = ? WHERE user_id = ? AND repo_id = ?",
+            sql: "UPDATE user_repos SET list_id = ? WHERE user_id = ? AND repo_id = ? AND is_starred = 1",
             args: [listId, userId, repoId],
           });
         }
@@ -339,7 +345,7 @@ async function loadRepoIdsByFullName(userId: string): Promise<Map<string, number
     sql: `SELECT r.id, r.full_name
           FROM user_repos ur
           JOIN repos r ON r.id = ur.repo_id
-          WHERE ur.user_id = ?`,
+          WHERE ur.user_id = ? AND ur.is_starred = 1`,
     args: [userId],
   });
 

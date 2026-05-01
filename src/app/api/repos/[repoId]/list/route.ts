@@ -1,6 +1,8 @@
-import { auth } from "@/lib/auth";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
 import { db } from "@/db";
-import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 export async function PUT(
   request: NextRequest,
@@ -12,11 +14,15 @@ export async function PUT(
   }
 
   const { repoId } = await params;
-  const { listId } = await request.json();
+  const body = (await request.json()) as { listId?: number | null };
+  const listId = body.listId;
 
   await db.execute({
-    sql: "UPDATE user_repos SET list_id = ? WHERE user_id = ? AND repo_id = ?",
-    args: [listId ?? null, session.user.githubId, parseInt(repoId, 10)],
+    sql: `INSERT INTO user_repos (user_id, repo_id, list_id, is_starred)
+          VALUES (?, ?, ?, 0)
+          ON CONFLICT(user_id, repo_id) DO UPDATE SET
+            list_id = excluded.list_id`,
+    args: [session.user.githubId, parseInt(repoId, 10), listId ?? null],
   });
 
   return NextResponse.json({ success: true });

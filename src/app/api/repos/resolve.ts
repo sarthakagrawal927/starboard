@@ -1,5 +1,19 @@
 import { db } from "@/db";
 
+interface GitHubRepoResponse {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: { login: string; avatar_url: string };
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  stargazers_count: number;
+  topics?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Resolve owner/repo slug to a numeric repo ID.
  * If the repo isn't in our DB yet, fetches from GitHub and inserts it.
@@ -28,7 +42,7 @@ export async function resolveRepoId(
 
   if (!ghRes.ok) return null;
 
-  const gh = await ghRes.json();
+  const gh = (await ghRes.json()) as GitHubRepoResponse;
 
   await db.execute({
     sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url,

@@ -1,10 +1,24 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
-import { SortOption } from "@/hooks/use-starred-repos";
-import { Input } from "@/components/ui/input";
+import {
+  ArrowUpDown,
+  Check,
+  Database,
+  LayoutGrid,
+  List,
+  Loader2,
+  LogOut,
+  Menu,
+  RefreshCw,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut,useSession } from "next-auth/react";
+
 import { Button } from "@/components/ui/button";
-import { getAvatarImageAttrs } from "@/lib/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,19 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Search,
-  ArrowUpDown,
-  LayoutGrid,
-  List,
-  LogOut,
-  Menu,
-  Check,
-  X,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
+import type { SortOption } from "@/hooks/use-starred-repos";
+import { getAvatarImageAttrs } from "@/lib/avatar";
 
 const sortLabels: Record<SortOption, string> = {
   "recently-starred": "Recently Starred",
@@ -63,6 +68,8 @@ export function TopBar({
   onSync,
 }: TopBarProps) {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const isDiscover = pathname?.startsWith("/discover");
   const userAvatar = session?.user?.image
     ? getAvatarImageAttrs(session.user.image, 32)
     : null;
@@ -89,6 +96,31 @@ export function TopBar({
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"
         />
+      </div>
+
+      <div className="hidden shrink-0 items-center rounded-md border p-0.5 sm:flex">
+        <Button
+          asChild
+          variant={!isDiscover ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <Link href="/stars">
+            <Star className="size-3.5" />
+            Stars
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant={isDiscover ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <Link href="/discover">
+            <Database className="size-3.5" />
+            Discover
+          </Link>
+        </Button>
       </div>
 
       {typeof repoCount === "number" && (

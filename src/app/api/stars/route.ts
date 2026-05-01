@@ -1,9 +1,10 @@
-import { auth } from "@/lib/auth";
+import type { InStatement, InValue } from "@libsql/client";
+import { type NextRequest,NextResponse } from "next/server";
+
 import { db } from "@/db";
+import { auth } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/embeddings";
 import { rrfFuse } from "@/lib/search";
-import { NextResponse, type NextRequest } from "next/server";
-import type { InStatement, InValue } from "@libsql/client";
 
 // Cache embedding existence check per user (5 min TTL)
 const embeddingCheckCache = new Map<string, { value: boolean; expires: number }>();
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
   const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
 
   // Build dynamic WHERE clauses
-  const whereClauses: string[] = ["ur.user_id = ?"];
+  const whereClauses: string[] = ["ur.user_id = ?", "ur.is_starred = 1"];
   const whereArgs: InValue[] = [userId];
 
   // Hybrid search: rank-fuse lexical (LIKE w/ column priority) + vector (cosine).
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
       sql: `SELECT r.language, COUNT(*) as count
             FROM user_repos ur
             JOIN repos r ON r.id = ur.repo_id
-            WHERE ur.user_id = ? AND r.language IS NOT NULL AND r.language != ''
+            WHERE ur.user_id = ? AND ur.is_starred = 1 AND r.language IS NOT NULL AND r.language != ''
             GROUP BY r.language
             ORDER BY count DESC`,
       args: [userId],
@@ -199,7 +200,7 @@ export async function GET(request: NextRequest) {
     const listFacetQuery: InStatement = {
       sql: `SELECT ul.id, ul.name, ul.color, COUNT(ur.repo_id) as count
             FROM user_lists ul
-            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id
+            LEFT JOIN user_repos ur ON ur.list_id = ul.id AND ur.user_id = ul.user_id AND ur.is_starred = 1
             WHERE ul.user_id = ?
             GROUP BY ul.id
             ORDER BY ul.position ASC`,
@@ -209,7 +210,7 @@ export async function GET(request: NextRequest) {
     const tagFacetQuery: InStatement = {
       sql: `SELECT ur.tags
             FROM user_repos ur
-            WHERE ur.user_id = ? AND ur.tags != '[]'`,
+            WHERE ur.user_id = ? AND ur.is_starred = 1 AND ur.tags != '[]'`,
       args: [userId],
     };
 

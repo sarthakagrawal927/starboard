@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS user_repos (
   list_id     INTEGER REFERENCES user_lists(id) ON DELETE SET NULL,
   tags        TEXT NOT NULL DEFAULT '[]',
   notes       TEXT,
+  is_starred  INTEGER NOT NULL DEFAULT 1,
   starred_at  TEXT DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, repo_id)
 );

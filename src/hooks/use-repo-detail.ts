@@ -2,10 +2,10 @@
 
 import useSWR from "swr";
 
-const fetcher = (url: string) =>
+const fetcher = async <T>(url: string): Promise<T> =>
   fetch(url).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
+    return r.json() as Promise<T>;
   });
 
 interface RepoDetail {
@@ -39,14 +39,14 @@ export interface Comment {
 export function useRepoDetail(slug: string) {
   const { data, error, isLoading, mutate } = useSWR<RepoDetail>(
     slug ? `/api/repos/lookup?name=${encodeURIComponent(slug)}` : null,
-    fetcher
+    fetcher<RepoDetail>
   );
 
   const repoId = data?.repo.id;
 
   const { data: comments, mutate: mutateComments } = useSWR<Comment[]>(
     repoId ? `/api/repos/${repoId}/comments` : null,
-    fetcher
+    fetcher<Comment[]>
   );
 
   const addComment = async (body: string) => {

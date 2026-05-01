@@ -1,59 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import useSWR from "swr";
 
-export type SortOption = "recently-starred" | "most-stars" | "recently-updated" | "name-az";
+import type { Facets, SortOption, UserRepo } from "@/hooks/use-starred-repos";
 
-// Map frontend sort names to API sort params
 const sortMap: Record<SortOption, string> = {
-  "recently-starred": "starred",
+  "recently-starred": "stars",
   "most-stars": "stars",
   "recently-updated": "updated",
   "name-az": "name",
 };
 
-export interface UserRepo {
-  id: number;
-  name: string;
-  full_name: string;
-  owner: { login: string; avatar_url: string };
-  html_url: string;
-  description: string | null;
-  language: string | null;
-  stargazers_count: number;
-  topics: string[];
-  created_at: string;
-  updated_at: string;
-  list_id: number | null;
-  tags: string[];
-  notes: string | null;
-  starred_at: string | null;
-  is_starred?: boolean;
-}
-
-export interface Facets {
-  languages: [string, number][];
-  lists: { id: number; name: string; color: string; count: number }[];
-  tags: [string, number][];
-}
-
-interface StarsResponse {
+interface DiscoverResponse {
   repos: UserRepo[];
   total: number;
   facets: Facets;
+  minStars: number;
 }
 
-export interface SyncResult {
-  added: { id: number; full_name: string; description: string | null }[];
-  removed: { id: number; full_name: string; description: string | null }[];
-  importedLists: string[];
-  assignedRepos: number;
-  totalRepos: number;
-  unchanged: boolean;
-}
-
-export interface UseStarredReposOptions {
+export interface UseDiscoverReposOptions {
   q?: string;
   language?: string[];
   listId?: number | null;
@@ -62,43 +28,46 @@ export interface UseStarredReposOptions {
   limit?: number;
 }
 
-function buildStarsUrl(opts: UseStarredReposOptions, offset: number): string {
+const EMPTY_FACETS: Facets = {
+  languages: [],
+  lists: [],
+  tags: [],
+};
+
+function buildDiscoverUrl(opts: UseDiscoverReposOptions, offset: number): string {
   const params = new URLSearchParams();
   if (opts.q) params.set("q", opts.q);
   if (opts.language?.length) params.set("language", opts.language.join(","));
   if (opts.listId != null) params.set("list_id", String(opts.listId));
   if (opts.tag) params.set("tag", opts.tag);
-  const apiSort = sortMap[opts.sort ?? "recently-starred"];
-  if (apiSort !== "starred") params.set("sort", apiSort);
+  const apiSort = sortMap[opts.sort ?? "most-stars"];
+  if (apiSort !== "stars") params.set("sort", apiSort);
   const limit = opts.limit ?? 50;
   if (limit !== 50) params.set("limit", String(limit));
   if (offset > 0) params.set("offset", String(offset));
   const qs = params.toString();
-  return `/api/stars${qs ? `?${qs}` : ""}`;
+  return `/api/discover${qs ? `?${qs}` : ""}`;
 }
 
-// Serialize filter options to a stable key for detecting filter changes
-function filterKey(opts: UseStarredReposOptions): string {
+function filterKey(opts: UseDiscoverReposOptions): string {
   return JSON.stringify({
     q: opts.q ?? "",
     lang: opts.language ?? [],
     list: opts.listId ?? null,
     tag: opts.tag ?? null,
-    sort: opts.sort ?? "recently-starred",
+    sort: opts.sort ?? "most-stars",
   });
 }
 
-export function useStarredRepos(opts: UseStarredReposOptions = {}) {
-  const { mutate: globalMutate } = useSWRConfig();
+export function useDiscoverRepos(opts: UseDiscoverReposOptions = {}) {
   const [loadedRepos, setLoadedRepos] = useState<UserRepo[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const prevFilterKey = useRef(filterKey(opts));
   const searchAbortRef = useRef<AbortController | null>(null);
   const loadMoreAbortRef = useRef<AbortController | null>(null);
 
-  // First page via SWR
-  const url = buildStarsUrl(opts, 0);
-  const { data, error, isLoading, isValidating, mutate } = useSWR<StarsResponse>(
+  const url = buildDiscoverUrl(opts, 0);
+  const { data, error, isLoading, isValidating, mutate } = useSWR<DiscoverResponse>(
     url,
     (url: string) => {
       const controller = new AbortController();
@@ -114,13 +83,11 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
       keepPreviousData: true,
       errorRetryCount: 1,
       onError: (err) => {
-        // Don't let SWR retry aborted requests
         if (err?.name === "AbortError") return;
       },
     }
   );
 
-  // Abort stale requests and reset pagination when filters change
   useEffect(() => {
     const currentKey = filterKey(opts);
     if (currentKey !== prevFilterKey.current) {
@@ -143,55 +110,30 @@ export function useStarredRepos(opts: UseStarredReposOptions = {}) {
     const nextOffset = allRepos.length;
     setLoadingMore(true);
     try {
-      const nextUrl = buildStarsUrl(opts, nextOffset);
+      const nextUrl = buildDiscoverUrl(opts, nextOffset);
       const res = await fetch(nextUrl, { signal: loadMoreAbortRef.current.signal });
       if (!res.ok) throw new Error(`${res.status}`);
-      const page: StarsResponse = await res.json();
+      const page: DiscoverResponse = await res.json();
       setLoadedRepos((prev) => [...prev, ...page.repos]);
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      throw e;
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+      throw error;
     } finally {
       setLoadingMore(false);
     }
   }, [loadingMore, hasMore, allRepos.length, opts]);
 
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-
-  const sync = async () => {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const res = await fetch("/api/stars/sync", { method: "POST" });
-      const result: SyncResult = await res.json();
-      setSyncResult(result);
-      setLoadedRepos([]);
-      await Promise.all([mutate(), globalMutate("/api/lists")]);
-      // Auto-generate embeddings for all repos missing them
-      fetch("/api/embeddings/generate", { method: "POST" }).catch(() => {});
-      return result;
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const dismissSyncResult = () => setSyncResult(null);
-
   return {
     repos: allRepos,
     total,
-    facets: data?.facets ?? { languages: [], lists: [], tags: [] },
+    facets: data?.facets ?? EMPTY_FACETS,
+    minStars: data?.minStars ?? 5000,
     error,
     isLoading: isLoading && allRepos.length === 0,
     isValidating,
     loadingMore,
     hasMore,
     loadMore,
-    syncing,
-    sync,
-    syncResult,
-    dismissSyncResult,
     mutate,
   };
 }

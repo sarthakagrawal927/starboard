@@ -1,4 +1,4 @@
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
@@ -23,7 +23,7 @@ export async function GET(
     return NextResponse.json([]);
   }
 
-  return NextResponse.json(JSON.parse(result.rows[0].tags as string));
+  return NextResponse.json(JSON.parse(result.rows[0]["tags"] as string));
 }
 
 export async function PUT(
@@ -36,7 +36,8 @@ export async function PUT(
   }
 
   const { repoId } = await params;
-  const { tags } = await request.json();
+  const body = (await request.json()) as { tags?: unknown };
+  const tags = body.tags;
 
   if (
     !Array.isArray(tags) ||
@@ -50,8 +51,11 @@ export async function PUT(
   }
 
   await db.execute({
-    sql: "UPDATE user_repos SET tags = ? WHERE user_id = ? AND repo_id = ?",
-    args: [JSON.stringify(tags), session.user.githubId, parseInt(repoId, 10)],
+    sql: `INSERT INTO user_repos (user_id, repo_id, tags, is_starred)
+          VALUES (?, ?, ?, 0)
+          ON CONFLICT(user_id, repo_id) DO UPDATE SET
+            tags = excluded.tags`,
+    args: [session.user.githubId, parseInt(repoId, 10), JSON.stringify(tags)],
   });
 
   return NextResponse.json({ tags });

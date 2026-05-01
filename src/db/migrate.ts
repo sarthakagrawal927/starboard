@@ -20,6 +20,7 @@ async function migrate() {
     "ALTER TABLE user_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE user_lists ADD COLUMN slug TEXT",
     "ALTER TABLE user_lists ADD COLUMN description TEXT",
+    "ALTER TABLE user_repos ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 1",
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* column already exists */ }
@@ -36,7 +37,7 @@ async function migrate() {
     await db.execute(statement);
   }
 
-  console.log("Migration complete");
+  console.info("Migration complete");
   process.exit(0);
 }
 

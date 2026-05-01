@@ -1,8 +1,24 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { NextResponse, type NextRequest } from "next/server";
 import type { InStatement } from "@libsql/client";
+import { type NextRequest,NextResponse } from "next/server";
+
+import { db } from "@/db";
+import { auth } from "@/lib/auth";
+
 import { resolveRepoId } from "../resolve";
+
+interface GitHubRepoResponse {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: { login: string; avatar_url: string };
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  stargazers_count: number;
+  topics?: string[];
+  created_at: string;
+  updated_at: string;
+}
 
 export async function GET(
   request: NextRequest,
@@ -54,7 +70,7 @@ export async function GET(
         return NextResponse.json({ error: "Failed to fetch repository from GitHub" }, { status: 502 });
       }
 
-      const gh = await ghRes.json();
+      const gh = (await ghRes.json()) as GitHubRepoResponse;
 
       await db.execute({
         sql: `INSERT INTO repos (id, name, full_name, owner_login, owner_avatar, html_url,
