@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/embeddings";
-import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
+import { blendSearchIds, expandedSearchQuery, ftsSearchQuery } from "@/lib/search";
 
 // Cache embedding existence check per user (5 min TTL)
 const embeddingCheckCache = new Map<string, { value: boolean; expires: number }>();
@@ -46,79 +46,28 @@ export async function GET(request: NextRequest) {
   // Reciprocal Rank Fusion: score = sum 1/(K + rank_i). Items in both lists rise.
   let rankedRepoIds: number[] | null = null;
   if (q) {
-    const pattern = `%${q}%`;
-    const tokenPatterns = searchTerms(q).map((term) => `%${term}%`);
+    const lexicalQuery = ftsSearchQuery(q);
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55; // cosine distance cutoff (lower = more similar)
-    const lexicalClauses = [
-      "r.name LIKE ? COLLATE NOCASE",
-      "r.full_name LIKE ? COLLATE NOCASE",
-      "r.description LIKE ? COLLATE NOCASE",
-      "r.topics LIKE ? COLLATE NOCASE",
-      "ur.notes LIKE ? COLLATE NOCASE",
-    ];
-    const tokenLexicalSql = tokenPatterns
-      .map(() => `(${lexicalClauses.join(" OR ")})`)
-      .join(" OR ");
-    const tokenScoreSql = tokenPatterns
-      .map(
-        () => `(CASE
-                   WHEN r.name LIKE ? COLLATE NOCASE THEN 20
-                   WHEN r.full_name LIKE ? COLLATE NOCASE THEN 14
-                   WHEN r.topics LIKE ? COLLATE NOCASE THEN 6
-                   WHEN r.description LIKE ? COLLATE NOCASE THEN 3
-                   WHEN ur.notes LIKE ? COLLATE NOCASE THEN 2
-                   ELSE 0
-                 END)`
-      )
-      .join(" + ");
-    const tokenWhereArgs = tokenPatterns.flatMap((token) => [
-      token,
-      token,
-      token,
-      token,
-      token,
-    ]);
-    const tokenScoreArgs = tokenPatterns.flatMap((token) => [
-      token,
-      token,
-      token,
-      token,
-      token,
-    ]);
 
-    // 1. Lexical matches across name, full_name, description, topics, notes.
-    //    NOCASE for case-insensitive. Order by column priority (name > full_name > rest).
-    const lexResult = await db.execute({
-      sql: `SELECT r.id,
-                   CASE
-                     WHEN r.name        LIKE ? COLLATE NOCASE THEN 0
-                     WHEN r.full_name   LIKE ? COLLATE NOCASE THEN 1
-                     WHEN r.description LIKE ? COLLATE NOCASE THEN 2
-                     WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
-                     WHEN ur.notes      LIKE ? COLLATE NOCASE THEN 4
-                     ELSE 6
-                   END AS priority,
-                   ${tokenScoreSql || "0"} AS token_score
-            FROM user_repos ur JOIN repos r ON r.id = ur.repo_id
-            WHERE ur.user_id = ?
-              AND ((r.name        LIKE ? COLLATE NOCASE
-                OR r.full_name   LIKE ? COLLATE NOCASE
-                OR r.description LIKE ? COLLATE NOCASE
-                OR r.topics      LIKE ? COLLATE NOCASE
-                OR ur.notes      LIKE ? COLLATE NOCASE)
-                ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})
-            ORDER BY token_score DESC, priority ASC`,
-      args: [
-        pattern, pattern, pattern, pattern, pattern,
-        ...tokenScoreArgs,
-        userId,
-        pattern, pattern, pattern, pattern, pattern,
-        ...tokenWhereArgs,
-      ],
-    });
-    const lexIds = lexResult.rows.map((r) => r.id as number);
+    // 1. Lexical matches through FTS5 over repo name/full_name/description/language/topics.
+    let lexIds: number[] = [];
+    if (lexicalQuery) {
+      const lexResult = await db.execute({
+        sql: `SELECT r.id,
+                     bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
+              FROM user_repos ur
+              JOIN repos r ON r.id = ur.repo_id
+              JOIN repos_fts ON repos_fts.rowid = r.id
+              WHERE ur.user_id = ?
+                AND repos_fts MATCH ?
+              ORDER BY rank ASC, r.stargazers_count DESC
+              LIMIT 500`,
+        args: [userId, lexicalQuery],
+      });
+      lexIds = lexResult.rows.map((r) => r.id as number);
+    }
 
     // 2. Semantic matches via vector_top_k. Pull distance, drop the noisy tail.
     //    vector_top_k is global; user filtering happens in the main query.
@@ -147,7 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. RRF fusion of the two ranked lists.
-    const fused = rrfFuse([lexIds, semIds], RRF_K);
+    const fused = blendSearchIds(lexIds, semIds, RRF_K);
 
     if (fused.length > 0) {
       rankedRepoIds = fused;
@@ -155,12 +104,8 @@ export async function GET(request: NextRequest) {
       whereClauses.push(`r.id IN (${placeholders})`);
       whereArgs.push(...fused);
     } else {
-      // No matches — keep LIKE so we don't return the whole library.
-      whereClauses.push(
-        `((r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE OR ur.notes LIKE ? COLLATE NOCASE)
-          ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})`
-      );
-      whereArgs.push(pattern, pattern, pattern, pattern, pattern, ...tokenWhereArgs);
+      // No matches — keep the filtered result empty instead of returning the whole library.
+      whereClauses.push("0 = 1");
     }
   }
 

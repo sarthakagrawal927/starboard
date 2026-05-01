@@ -19,6 +19,30 @@ export function rrfFuse(lists: number[][], k = 60): number[] {
     .map(([id]) => id);
 }
 
+export function blendSearchIds(lexIds: number[], semIds: number[], k = 60): number[] {
+  const fused = rrfFuse([lexIds, semIds], k);
+  const out: number[] = [];
+  const seen = new Set<number>();
+
+  for (const id of lexIds.slice(0, 50)) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  for (const id of fused) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  for (const id of semIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+
+  return out;
+}
+
 const SEARCH_STOP_WORDS = new Set([
   "a",
   "an",
@@ -123,6 +147,21 @@ export function searchTerms(query: string, maxTerms = 24): string[] {
   }
 
   return Array.from(terms).slice(0, maxTerms);
+}
+
+function ftsTerm(term: string): string | null {
+  const cleaned = term.replace(/"/g, " ").trim();
+  if (cleaned.length < 2) return null;
+  if (/^[a-z0-9]+$/i.test(cleaned)) return `${cleaned}*`;
+  return `"${cleaned}"`;
+}
+
+export function ftsSearchQuery(query: string): string | null {
+  const terms = searchTerms(query)
+    .map(ftsTerm)
+    .filter((term): term is string => term !== null);
+  if (terms.length === 0) return null;
+  return terms.join(" OR ");
 }
 
 export function expandedSearchQuery(query: string): string {

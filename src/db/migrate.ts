@@ -40,6 +40,28 @@ async function migrate() {
   }
 
   await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repos_ai AFTER INSERT ON repos BEGIN
+      INSERT INTO repos_fts(rowid, name, full_name, description, language, topics)
+      VALUES (new.id, new.name, new.full_name, new.description, new.language, new.topics);
+    END;
+  `);
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repos_ad AFTER DELETE ON repos BEGIN
+      INSERT INTO repos_fts(repos_fts, rowid, name, full_name, description, language, topics)
+      VALUES('delete', old.id, old.name, old.full_name, old.description, old.language, old.topics);
+    END;
+  `);
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repos_au AFTER UPDATE ON repos BEGIN
+      INSERT INTO repos_fts(repos_fts, rowid, name, full_name, description, language, topics)
+      VALUES('delete', old.id, old.name, old.full_name, old.description, old.language, old.topics);
+      INSERT INTO repos_fts(rowid, name, full_name, description, language, topics)
+      VALUES (new.id, new.name, new.full_name, new.description, new.language, new.topics);
+    END;
+  `);
+  await db.execute("INSERT INTO repos_fts(repos_fts) VALUES('rebuild')");
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS user_repo_lists (
       user_id    TEXT NOT NULL REFERENCES users(id),
       repo_id    INTEGER NOT NULL REFERENCES repos(id),

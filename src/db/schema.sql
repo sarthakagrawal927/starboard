@@ -130,3 +130,13 @@ CREATE INDEX IF NOT EXISTS idx_repo_star_snapshots_captured ON repo_star_snapsho
 CREATE INDEX IF NOT EXISTS idx_repo_star_snapshots_repo ON repo_star_snapshots(repo_id, captured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_repo_threshold_events_crossed ON repo_threshold_events(crossed_at);
 CREATE INDEX IF NOT EXISTS idx_repo_threshold_events_threshold ON repo_threshold_events(threshold, crossed_at);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS repos_fts USING fts5(
+  name,
+  full_name,
+  description,
+  language,
+  topics,
+  content='repos',
+  content_rowid='id'
+);

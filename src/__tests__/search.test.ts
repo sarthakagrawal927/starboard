@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { cosineSimilarity } from "@/lib/embeddings";
-import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
+import { blendSearchIds, expandedSearchQuery, ftsSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
 
 describe("rrfFuse", () => {
   it("returns empty for empty input", () => {
@@ -82,6 +82,23 @@ describe("searchTerms", () => {
     expect(query).toContain("langchain");
     expect(query).toContain("llamaindex");
     expect(query).toContain("crewai");
+  });
+
+  it("builds an FTS query from expanded terms", () => {
+    const query = ftsSearchQuery("top eval platforms");
+
+    expect(query).toContain("eval*");
+    expect(query).toContain("promptfoo*");
+    expect(query).toContain("lm-evaluation-harness");
+  });
+});
+
+describe("blendSearchIds", () => {
+  it("keeps high-rank lexical matches visible before semantic tail results", () => {
+    const result = blendSearchIds([1, 2, 3], [90, 91, 1]);
+
+    expect(result.slice(0, 3)).toEqual([1, 2, 3]);
+    expect(result).toContain(90);
   });
 });
 

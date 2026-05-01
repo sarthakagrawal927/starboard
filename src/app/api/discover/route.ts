@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
 import { generateEmbedding } from "@/lib/embeddings";
-import { expandedSearchQuery, rrfFuse, searchTerms } from "@/lib/search";
+import { blendSearchIds, expandedSearchQuery, ftsSearchQuery } from "@/lib/search";
 
 const MIN_STARS_FLOOR = 5000;
 const ELIGIBLE_REPO_SQL =
@@ -32,78 +32,25 @@ export async function GET(request: NextRequest) {
 
   let rankedRepoIds: number[] | null = null;
   if (q) {
-    const pattern = `%${q}%`;
-    const tokenPatterns = searchTerms(q).map((term) => `%${term}%`);
+    const lexicalQuery = ftsSearchQuery(q);
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55;
-    const lexicalClauses = [
-      "r.name LIKE ? COLLATE NOCASE",
-      "r.full_name LIKE ? COLLATE NOCASE",
-      "r.description LIKE ? COLLATE NOCASE",
-      "r.topics LIKE ? COLLATE NOCASE",
-    ];
-    const tokenLexicalSql = tokenPatterns
-      .map(() => `(${lexicalClauses.join(" OR ")})`)
-      .join(" OR ");
-    const tokenScoreSql = tokenPatterns
-      .map(
-        () => `(CASE
-                   WHEN r.name LIKE ? COLLATE NOCASE THEN 20
-                   WHEN r.full_name LIKE ? COLLATE NOCASE THEN 14
-                   WHEN r.topics LIKE ? COLLATE NOCASE THEN 6
-                   WHEN r.description LIKE ? COLLATE NOCASE THEN 3
-                   ELSE 0
-                 END)`
-      )
-      .join(" + ");
-    const tokenWhereArgs = tokenPatterns.flatMap((token) => [
-      token,
-      token,
-      token,
-      token,
-    ]);
-    const tokenScoreArgs = tokenPatterns.flatMap((token) => [
-      token,
-      token,
-      token,
-      token,
-    ]);
-
-    const lexResult = await db.execute({
-      sql: `SELECT r.id,
-                   CASE
-                     WHEN r.name        LIKE ? COLLATE NOCASE THEN 0
-                     WHEN r.full_name   LIKE ? COLLATE NOCASE THEN 1
-                     WHEN r.description LIKE ? COLLATE NOCASE THEN 2
-                     WHEN r.topics      LIKE ? COLLATE NOCASE THEN 3
-                     ELSE 4
-                   END AS priority,
-                   ${tokenScoreSql || "0"} AS token_score
-            FROM repos r
-            WHERE ${ELIGIBLE_REPO_SQL}
-              AND ((r.name        LIKE ? COLLATE NOCASE
-                OR r.full_name   LIKE ? COLLATE NOCASE
-                OR r.description LIKE ? COLLATE NOCASE
-                OR r.topics      LIKE ? COLLATE NOCASE)
-                ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})
-            ORDER BY token_score DESC, priority ASC, r.stargazers_count DESC
-            LIMIT 500`,
-      args: [
-        pattern,
-        pattern,
-        pattern,
-        pattern,
-        ...tokenScoreArgs,
-        MIN_STARS_FLOOR,
-        pattern,
-        pattern,
-        pattern,
-        pattern,
-        ...tokenWhereArgs,
-      ],
-    });
-    const lexIds = lexResult.rows.map((r) => r["id"] as number);
+    let lexIds: number[] = [];
+    if (lexicalQuery) {
+      const lexResult = await db.execute({
+        sql: `SELECT r.id,
+                     bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
+              FROM repos_fts
+              JOIN repos r ON r.id = repos_fts.rowid
+              WHERE repos_fts MATCH ?
+                AND ${ELIGIBLE_REPO_SQL}
+              ORDER BY rank ASC, r.stargazers_count DESC
+              LIMIT 500`,
+        args: [lexicalQuery, MIN_STARS_FLOOR],
+      });
+      lexIds = lexResult.rows.map((r) => r["id"] as number);
+    }
 
     let semIds: number[] = [];
     try {
@@ -130,18 +77,14 @@ export async function GET(request: NextRequest) {
       console.warn("Discover semantic search failed:", error);
     }
 
-    const fused = rrfFuse([lexIds, semIds], RRF_K);
+    const fused = blendSearchIds(lexIds, semIds, RRF_K);
     if (fused.length > 0) {
       rankedRepoIds = fused;
       const placeholders = fused.map(() => "?").join(", ");
       whereClauses.push(`r.id IN (${placeholders})`);
       whereArgs.push(...fused);
     } else {
-      whereClauses.push(
-        `((r.name LIKE ? COLLATE NOCASE OR r.full_name LIKE ? COLLATE NOCASE OR r.description LIKE ? COLLATE NOCASE OR r.topics LIKE ? COLLATE NOCASE)
-          ${tokenLexicalSql ? `OR ${tokenLexicalSql}` : ""})`
-      );
-      whereArgs.push(pattern, pattern, pattern, pattern, ...tokenWhereArgs);
+      whereClauses.push("0 = 1");
     }
   }
 
