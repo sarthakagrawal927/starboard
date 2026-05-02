@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed-embeddings": "tsx src/db/seed-embeddings.ts",
     "db:embed-pending": "tsx src/db/seed-embeddings.ts",
+    "db:enrich-repos": "tsx scripts/enrich-repos.ts",
     "db:seed-popular": "tsx scripts/seed-popular.ts",
     "weekly:threshold-digest": "tsx scripts/weekly-threshold-digest.ts",
     "cf:build": "next build --webpack && opennextjs-cloudflare build --skipNextBuild",

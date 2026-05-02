@@ -95,6 +95,22 @@ CREATE TABLE IF NOT EXISTS repo_embeddings (
 CREATE INDEX IF NOT EXISTS idx_repo_embeddings_vec
   ON repo_embeddings(libsql_vector_idx(embedding, 'metric=cosine'));
 
+CREATE TABLE IF NOT EXISTS repo_ai_metadata (
+  repo_id       INTEGER PRIMARY KEY REFERENCES repos(id) ON DELETE CASCADE,
+  summary       TEXT NOT NULL,
+  category      TEXT NOT NULL,
+  subcategories TEXT NOT NULL DEFAULT '[]',
+  use_cases     TEXT NOT NULL DEFAULT '[]',
+  keywords      TEXT NOT NULL DEFAULT '[]',
+  source_hash   TEXT NOT NULL,
+  model         TEXT NOT NULL,
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_repo_ai_metadata_category
+  ON repo_ai_metadata(category);
+
 CREATE TABLE IF NOT EXISTS repo_star_snapshots (
   repo_id           INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
   stargazers_count INTEGER NOT NULL,
@@ -139,4 +155,14 @@ CREATE VIRTUAL TABLE IF NOT EXISTS repos_fts USING fts5(
   topics,
   content='repos',
   content_rowid='id'
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS repo_ai_metadata_fts USING fts5(
+  summary,
+  category,
+  subcategories,
+  use_cases,
+  keywords,
+  content='repo_ai_metadata',
+  content_rowid='repo_id'
 );

@@ -34,6 +34,27 @@ describe("buildRepoEmbeddingText", () => {
     });
     expect(text).toBe("user repo | desc | a, b");
   });
+
+  it("includes AI metadata when available", () => {
+    const text = buildRepoEmbeddingText({
+      full_name: "promptfoo/promptfoo",
+      description: "Test your prompts",
+      language: "TypeScript",
+      topics: ["evals"],
+      ai: {
+        summary: "LLM evaluation framework.",
+        category: "ai-evals",
+        subcategories: ["prompt testing"],
+        use_cases: ["evaluate prompts"],
+        keywords: ["evals", "promptfoo", "llm testing"],
+      },
+    });
+
+    expect(text).toContain("LLM evaluation framework.");
+    expect(text).toContain("ai-evals");
+    expect(text).toContain("prompt testing");
+    expect(text).toContain("llm testing");
+  });
 });
 
 describe("textHash", () => {

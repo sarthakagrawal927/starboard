@@ -1,0 +1,54 @@
+name: Enrich repo metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      enrich_limit:
+        description: 'Repos to enrich this run'
+        required: false
+        default: '50'
+      hard_limit:
+        description: 'Safety cap for this run'
+        required: false
+        default: '200'
+
+concurrency:
+  group: enrich-repos
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: pnpm db:migrate
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
+      - name: Enrich repos with capped free-AI taxonomy
+        run: pnpm db:enrich-repos
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          AI_GATEWAY_URL: ${{ secrets.AI_GATEWAY_URL }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          ENRICH_LIMIT: ${{ github.event.inputs.enrich_limit || '50' }}
+          ENRICH_HARD_LIMIT: ${{ github.event.inputs.hard_limit || '200' }}
+          MIN_STARS_FLOOR: '5000'

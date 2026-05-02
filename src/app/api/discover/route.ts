@@ -40,14 +40,24 @@ export async function GET(request: NextRequest) {
     const lexIdsPromise = lexicalQuery
       ? db.execute({
           sql: `SELECT r.id,
-                       bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
-                FROM repos_fts
-                JOIN repos r ON r.id = repos_fts.rowid
-                WHERE repos_fts MATCH ?
-                  AND ${ELIGIBLE_REPO_SQL}
-                ORDER BY rank ASC, r.stargazers_count DESC
+                       MIN(rank) AS best_rank
+                FROM (
+                  SELECT repos_fts.rowid AS id,
+                         bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
+                  FROM repos_fts
+                  WHERE repos_fts MATCH ?
+                  UNION ALL
+                  SELECT repo_ai_metadata_fts.rowid AS id,
+                         bm25(repo_ai_metadata_fts, 4.0, 3.0, 2.0, 2.0, 2.5) AS rank
+                  FROM repo_ai_metadata_fts
+                  WHERE repo_ai_metadata_fts MATCH ?
+                ) matches
+                JOIN repos r ON r.id = matches.id
+                WHERE ${ELIGIBLE_REPO_SQL}
+                GROUP BY r.id
+                ORDER BY best_rank ASC, r.stargazers_count DESC
                 LIMIT 500`,
-          args: [lexicalQuery, MIN_STARS_FLOOR],
+          args: [lexicalQuery, lexicalQuery, MIN_STARS_FLOOR],
         }).then((result) => result.rows.map((r) => r["id"] as number))
       : Promise.resolve([]);
 

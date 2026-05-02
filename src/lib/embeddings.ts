@@ -12,6 +12,14 @@ interface AiBinding {
 
 export { EMBEDDING_DIM };
 
+interface RepoAiMetadataInput {
+  summary?: string | null;
+  category?: string | null;
+  subcategories?: string | string[] | null;
+  use_cases?: string | string[] | null;
+  keywords?: string | string[] | null;
+}
+
 /**
  * In Workers context (opennext), pull the direct AI binding.
  * Returns null when running in Node CLI (e.g. seed scripts) — caller falls
@@ -67,6 +75,7 @@ export function buildRepoEmbeddingText(repo: {
   description: string | null;
   language: string | null;
   topics: string | string[];
+  ai?: RepoAiMetadataInput | null;
 }): string {
   const parts = [repo.full_name.replace("/", " ")];
   if (repo.description) parts.push(repo.description);
@@ -74,7 +83,30 @@ export function buildRepoEmbeddingText(repo: {
   const topics =
     typeof repo.topics === "string" ? JSON.parse(repo.topics) : repo.topics;
   if (topics?.length) parts.push(topics.join(", "));
+  if (repo.ai) {
+    if (repo.ai.summary) parts.push(repo.ai.summary);
+    if (repo.ai.category) parts.push(repo.ai.category);
+    const subcategories = parseStringList(repo.ai.subcategories);
+    if (subcategories.length) parts.push(subcategories.join(", "));
+    const useCases = parseStringList(repo.ai.use_cases);
+    if (useCases.length) parts.push(useCases.join(", "));
+    const keywords = parseStringList(repo.ai.keywords);
+    if (keywords.length) parts.push(keywords.join(", "));
+  }
   return parts.join(" | ");
+}
+
+function parseStringList(value: string | string[] | null | undefined): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Simple hash to detect when repo text changes. */

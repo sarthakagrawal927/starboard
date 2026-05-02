@@ -62,6 +62,58 @@ async function migrate() {
   await db.execute("INSERT INTO repos_fts(repos_fts) VALUES('rebuild')");
 
   await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repo_ai_metadata_ai AFTER INSERT ON repo_ai_metadata BEGIN
+      INSERT INTO repo_ai_metadata_fts(rowid, summary, category, subcategories, use_cases, keywords)
+      VALUES (
+        new.repo_id,
+        new.summary,
+        new.category,
+        new.subcategories,
+        new.use_cases,
+        new.keywords
+      );
+    END;
+  `);
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repo_ai_metadata_ad AFTER DELETE ON repo_ai_metadata BEGIN
+      INSERT INTO repo_ai_metadata_fts(repo_ai_metadata_fts, rowid, summary, category, subcategories, use_cases, keywords)
+      VALUES(
+        'delete',
+        old.repo_id,
+        old.summary,
+        old.category,
+        old.subcategories,
+        old.use_cases,
+        old.keywords
+      );
+    END;
+  `);
+  await db.execute(`
+    CREATE TRIGGER IF NOT EXISTS repo_ai_metadata_au AFTER UPDATE ON repo_ai_metadata BEGIN
+      INSERT INTO repo_ai_metadata_fts(repo_ai_metadata_fts, rowid, summary, category, subcategories, use_cases, keywords)
+      VALUES(
+        'delete',
+        old.repo_id,
+        old.summary,
+        old.category,
+        old.subcategories,
+        old.use_cases,
+        old.keywords
+      );
+      INSERT INTO repo_ai_metadata_fts(rowid, summary, category, subcategories, use_cases, keywords)
+      VALUES (
+        new.repo_id,
+        new.summary,
+        new.category,
+        new.subcategories,
+        new.use_cases,
+        new.keywords
+      );
+    END;
+  `);
+  await db.execute("INSERT INTO repo_ai_metadata_fts(repo_ai_metadata_fts) VALUES('rebuild')");
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS user_repo_lists (
       user_id    TEXT NOT NULL REFERENCES users(id),
       repo_id    INTEGER NOT NULL REFERENCES repos(id),

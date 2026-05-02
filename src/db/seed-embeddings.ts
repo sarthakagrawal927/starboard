@@ -25,8 +25,18 @@ async function seed() {
   );
 
   const repos = await db.execute({
-    sql: `SELECT r.id, r.full_name, r.description, r.language, r.topics
+    sql: `SELECT r.id,
+                 r.full_name,
+                 r.description,
+                 r.language,
+                 r.topics,
+                 ram.summary,
+                 ram.category,
+                 ram.subcategories,
+                 ram.use_cases,
+                 ram.keywords
           FROM repos r
+          LEFT JOIN repo_ai_metadata ram ON ram.repo_id = r.id
           WHERE r.stargazers_count >= ?
              OR EXISTS (
                SELECT 1
@@ -44,6 +54,15 @@ async function seed() {
       description: row.description as string | null,
       language: row.language as string | null,
       topics: row.topics as string,
+      ai: row.summary
+        ? {
+            summary: row.summary as string,
+            category: row.category as string,
+            subcategories: row.subcategories as string,
+            use_cases: row.use_cases as string,
+            keywords: row.keywords as string,
+          }
+        : null,
     });
     const hash = textHash(text);
     if (existingHashes.get(row.id as number) !== hash) {
