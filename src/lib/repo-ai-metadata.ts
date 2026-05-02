@@ -1,7 +1,7 @@
 import { textHash } from "./embeddings";
 
 export const REPO_AI_METADATA_MODEL =
-  process.env.AI_GATEWAY_CHAT_MODEL || "@cf/meta/llama-3.1-8b-instruct";
+  process.env.AI_GATEWAY_CHAT_MODEL || "gpt-4o-mini";
 export const HEURISTIC_REPO_AI_METADATA_MODEL = "heuristic-taxonomy-v1";
 
 const MAX_TEXT_LENGTH = 1800;
@@ -52,13 +52,6 @@ interface ChatCompletionResponse {
   }[];
 }
 
-interface WorkersAiResponse {
-  result?: {
-    response?: string;
-  };
-  response?: string;
-}
-
 export function buildRepoAiSourceText(repo: RepoMetadataSource): string {
   const topics = Array.isArray(repo.topics)
     ? repo.topics
@@ -107,48 +100,30 @@ export async function generateRepoAiMetadata(
     throw new Error("AI_GATEWAY_URL and AI_GATEWAY_API_KEY are required");
   }
 
-  const prompt = [
-    "You produce strict JSON for software repository classification.",
-    buildRepoAiMetadataPrompt(repo),
-  ].join("\n\n");
-  const res = REPO_AI_METADATA_MODEL.startsWith("@cf/")
-    ? await fetchWithRetry(workersAiModelUrl(url, REPO_AI_METADATA_MODEL), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-          "x-gateway-project-id": "starboard",
+  const res = await fetchWithRetry(`${url}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "x-gateway-project-id": "starboard",
+    },
+    body: JSON.stringify({
+      model: REPO_AI_METADATA_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You produce strict JSON for software repository classification.",
         },
-        body: JSON.stringify({
-          prompt,
-          temperature: 0.1,
-          max_tokens: 260,
-        }),
-      })
-    : await fetchWithRetry(`${url}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-          "x-gateway-project-id": "starboard",
+        {
+          role: "user",
+          content: buildRepoAiMetadataPrompt(repo),
         },
-        body: JSON.stringify({
-          model: REPO_AI_METADATA_MODEL,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You produce strict JSON for software repository classification.",
-            },
-            {
-              role: "user",
-              content: buildRepoAiMetadataPrompt(repo),
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 260,
-        }),
-      });
+      ],
+      temperature: 0.1,
+      max_tokens: 260,
+    }),
+  });
 
   if (!res.ok) {
     const body = await res.text();
@@ -159,9 +134,7 @@ export async function generateRepoAiMetadata(
     throw new Error(`AI metadata API error ${res.status}: ${body}${hint}`);
   }
 
-  const content = REPO_AI_METADATA_MODEL.startsWith("@cf/")
-    ? workersAiResponseText((await res.json()) as WorkersAiResponse)
-    : chatCompletionText((await res.json()) as ChatCompletionResponse);
+  const content = chatCompletionText((await res.json()) as ChatCompletionResponse);
   return normalizeRepoAiMetadata(parseJsonObject(content || "{}"));
 }
 
@@ -249,15 +222,6 @@ function inferCategory(text: string): string {
   if (/\b(test|testing|mock|assert)\b/.test(text)) return "testing";
   if (/\b(framework|server|api)\b/.test(text)) return "app-framework";
   return "library";
-}
-
-function workersAiModelUrl(baseUrl: string, model: string): string {
-  const normalized = baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
-  return `${normalized}/${model}`;
-}
-
-function workersAiResponseText(json: WorkersAiResponse): string {
-  return json.result?.response || json.response || "";
 }
 
 function chatCompletionText(json: ChatCompletionResponse): string {

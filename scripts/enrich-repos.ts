@@ -13,7 +13,7 @@
  *   ENRICH_LIMIT          — repos to enrich this run, default 50
  *   ENRICH_HARD_LIMIT     — safety cap for one run, default 200
  *   MIN_STARS_FLOOR      — minimum stars to enrich, default 5000
- *   AI_GATEWAY_CHAT_MODEL — default @cf/meta/llama-3.1-8b-instruct
+ *   AI_GATEWAY_CHAT_MODEL — router chat model, default gpt-4o-mini
  */
 
 import { type Client, createClient, type InStatement } from "@libsql/client";

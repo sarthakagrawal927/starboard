@@ -11,6 +11,10 @@ on:
         description: 'Safety cap for this run'
         required: false
         default: '200'
+      chat_model:
+        description: 'free-ai router model for taxonomy generation'
+        required: false
+        default: 'gpt-4o-mini'
 
 concurrency:
   group: enrich-repos
@@ -49,6 +53,7 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           AI_GATEWAY_URL: ${{ secrets.AI_GATEWAY_URL }}
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          AI_GATEWAY_CHAT_MODEL: ${{ github.event.inputs.chat_model || 'gpt-4o-mini' }}
           ENRICH_LIMIT: ${{ github.event.inputs.enrich_limit || '50' }}
           ENRICH_HARD_LIMIT: ${{ github.event.inputs.hard_limit || '200' }}
           MIN_STARS_FLOOR: '5000'
