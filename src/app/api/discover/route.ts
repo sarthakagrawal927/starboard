@@ -36,48 +36,53 @@ export async function GET(request: NextRequest) {
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55;
-    let lexIds: number[] = [];
-    if (lexicalQuery) {
-      const lexResult = await db.execute({
-        sql: `SELECT r.id,
-                     bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
-              FROM repos_fts
-              JOIN repos r ON r.id = repos_fts.rowid
-              WHERE repos_fts MATCH ?
-                AND ${ELIGIBLE_REPO_SQL}
-              ORDER BY rank ASC, r.stargazers_count DESC
-              LIMIT 500`,
-        args: [lexicalQuery, MIN_STARS_FLOOR],
-      });
-      lexIds = lexResult.rows.map((r) => r["id"] as number);
-    }
+    const useSemanticSearch = sort === "relevance";
+    const lexIdsPromise = lexicalQuery
+      ? db.execute({
+          sql: `SELECT r.id,
+                       bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
+                FROM repos_fts
+                JOIN repos r ON r.id = repos_fts.rowid
+                WHERE repos_fts MATCH ?
+                  AND ${ELIGIBLE_REPO_SQL}
+                ORDER BY rank ASC, r.stargazers_count DESC
+                LIMIT 500`,
+          args: [lexicalQuery, MIN_STARS_FLOOR],
+        }).then((result) => result.rows.map((r) => r["id"] as number))
+      : Promise.resolve([]);
 
-    let semIds: number[] = [];
-    try {
-      const queryEmbedding = await generateEmbedding(expandedSearchQuery(q));
-      const vectorResult = await db.execute({
-        sql: `SELECT re.repo_id,
-                     vector_distance_cos(re.embedding, vector(?)) AS dist
-              FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
-              JOIN repo_embeddings re ON re.rowid = vt.id
-              JOIN repos r ON r.id = re.repo_id
-              WHERE ${ELIGIBLE_REPO_SQL}
-              ORDER BY dist ASC`,
-        args: [
-          JSON.stringify(queryEmbedding),
-          JSON.stringify(queryEmbedding),
-          VEC_TOP_K,
-          MIN_STARS_FLOOR,
-        ],
-      });
-      semIds = vectorResult.rows
-        .filter((r) => (r["dist"] as number) <= VEC_DIST_MAX)
-        .map((r) => r["repo_id"] as number);
-    } catch (error) {
-      console.warn("Discover semantic search failed:", error);
-    }
+    const semIdsPromise = useSemanticSearch
+      ? generateEmbedding(expandedSearchQuery(q))
+          .then((queryEmbedding) =>
+            db.execute({
+              sql: `SELECT re.repo_id,
+                           vector_distance_cos(re.embedding, vector(?)) AS dist
+                    FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
+                    JOIN repo_embeddings re ON re.rowid = vt.id
+                    JOIN repos r ON r.id = re.repo_id
+                    WHERE ${ELIGIBLE_REPO_SQL}
+                    ORDER BY dist ASC`,
+              args: [
+                JSON.stringify(queryEmbedding),
+                JSON.stringify(queryEmbedding),
+                VEC_TOP_K,
+                MIN_STARS_FLOOR,
+              ],
+            })
+          )
+          .then((vectorResult) =>
+            vectorResult.rows
+              .filter((r) => (r["dist"] as number) <= VEC_DIST_MAX)
+              .map((r) => r["repo_id"] as number)
+          )
+          .catch((error) => {
+            console.warn("Discover semantic search failed:", error);
+            return [];
+          })
+      : Promise.resolve([]);
 
-    const fused = blendSearchIds(lexIds, semIds, RRF_K);
+    const [lexIds, semIds] = await Promise.all([lexIdsPromise, semIdsPromise]);
+    const fused = useSemanticSearch ? blendSearchIds(lexIds, semIds, RRF_K) : lexIds;
     if (fused.length > 0) {
       rankedRepoIds = fused;
       const placeholders = fused.map(() => "?").join(", ");
@@ -106,7 +111,7 @@ export async function GET(request: NextRequest) {
   const useRankedOrder =
     rankedRepoIds &&
     rankedRepoIds.length > 0 &&
-    (sort === "relevance" || sort === "stars");
+    sort === "relevance";
   const orderByMap: Record<string, string> = {
     relevance: "r.stargazers_count DESC",
     stars: "r.stargazers_count DESC",

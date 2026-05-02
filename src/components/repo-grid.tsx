@@ -21,6 +21,7 @@ interface RepoGridProps {
   repos: UserRepo[];
   viewMode: "grid" | "list";
   isLoading: boolean;
+  isPending?: boolean;
   isValidating?: boolean;
   lists?: UserList[];
   onAssignList?: (repoId: number, listId: number, assigned: boolean) => void;
@@ -76,6 +77,7 @@ export function RepoGrid({
   repos,
   viewMode,
   isLoading,
+  isPending,
   isValidating,
   lists,
   onAssignList,
@@ -126,6 +128,7 @@ export function RepoGrid({
     estimateSize,
     overscan: 5,
   });
+  const showPending = Boolean(isPending || isValidating);
 
   // Infinite scroll: load more when scrolled near bottom
   useEffect(() => {
@@ -186,55 +189,65 @@ export function RepoGrid({
   }
 
   return (
-    <div ref={parentRef} className={`h-[calc(100svh-65px)] overflow-auto transition-opacity duration-150${isValidating && repos.length > 0 ? " opacity-85" : ""}`}>
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const rowRepos = rows[virtualRow.index];
-          return (
-            <div
-              key={virtualRow.key}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-                ...(viewMode === "grid"
-                  ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
-                  : {}),
-              }}
-              className={
-                viewMode === "grid"
-                  ? "grid gap-3 px-0 pb-3"
-                  : "pb-2"
-              }
-            >
-              {rowRepos.map((repo) => (
-                <RepoCard
-                  key={repo.id}
-                  repo={repo}
-                  viewMode={viewMode}
-                  lists={lists}
-                  onAssignList={onAssignList}
-                  onToggleSave={onToggleSave}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
-      {loadingMore && (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+    <div className="relative">
+      {showPending && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden bg-primary/10">
+          <div className="h-full w-full animate-pulse bg-primary" />
         </div>
       )}
+      <div
+        ref={parentRef}
+        className={`h-[calc(100svh-65px)] overflow-auto transition-opacity duration-100${showPending ? " opacity-75" : ""}`}
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const rowRepos = rows[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  ...(viewMode === "grid"
+                    ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+                    : {}),
+                }}
+                className={
+                  viewMode === "grid"
+                    ? "grid gap-3 px-0 pb-3"
+                    : "pb-2"
+                }
+              >
+                {rowRepos.map((repo) => (
+                  <RepoCard
+                    key={repo.id}
+                    repo={repo}
+                    viewMode={viewMode}
+                    lists={lists}
+                    onAssignList={onAssignList}
+                    onToggleSave={onToggleSave}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        {loadingMore && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

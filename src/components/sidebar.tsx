@@ -217,18 +217,24 @@ export function Sidebar({
               return (
                 <div
                   key={list.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    onListSelect(selectedListId === list.id ? null : list.id)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onListSelect(selectedListId === list.id ? null : list.id);
+                    }
+                  }}
                   className={cn(
-                    "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
+                    "group grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
                     selectedListId === list.id &&
                       "bg-accent text-accent-foreground"
                   )}
                 >
-                  <button
-                    onClick={() =>
-                      onListSelect(selectedListId === list.id ? null : list.id)
-                    }
-                    className="flex w-full min-w-0 items-center gap-2.5 text-left"
-                  >
+                  <div className="flex w-full min-w-0 items-center gap-2.5 text-left">
                     <span
                       className="inline-block size-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: list.color }}
@@ -236,7 +242,7 @@ export function Sidebar({
                     <span className="block min-w-0 flex-1 truncate text-left">
                       {list.name}
                     </span>
-                  </button>
+                  </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {onShareList && (
                       isCopied ? (

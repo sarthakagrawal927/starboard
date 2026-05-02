@@ -121,6 +121,21 @@ function DiscoverContent() {
     limit: 50,
   });
   const { lists, isLoading: listsLoading, createList, deleteList, shareList, assignRepoToList } = useLists();
+  const requestKey = [
+    debouncedSearch,
+    selectedLanguages.join(","),
+    selectedListId ?? "",
+    sortBy,
+  ].join("|");
+  const [settledRequestKey, setSettledRequestKey] = useState(requestKey);
+
+  useEffect(() => {
+    if (reposLoading || isValidating) return;
+    const timeout = window.setTimeout(() => {
+      setSettledRequestKey(requestKey);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [isValidating, reposLoading, requestKey]);
 
   const showSidebarSkeleton =
     (reposLoading || listsLoading) &&
@@ -131,6 +146,10 @@ function DiscoverContent() {
     searchQuery.trim().length > 0 ||
     selectedLanguages.length > 0 ||
     selectedListId !== null;
+  const isGridPending =
+    searchQuery !== debouncedSearch ||
+    requestKey !== settledRequestKey ||
+    isValidating;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
@@ -231,6 +250,7 @@ function DiscoverContent() {
               repos={repos}
               viewMode={viewMode}
               isLoading={reposLoading}
+              isPending={isGridPending}
               isValidating={isValidating}
               lists={lists}
               onAssignList={handleAssignList}

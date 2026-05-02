@@ -50,53 +50,56 @@ export async function GET(request: NextRequest) {
     const RRF_K = 60;
     const VEC_TOP_K = 500;
     const VEC_DIST_MAX = 0.55; // cosine distance cutoff (lower = more similar)
+    const useSemanticSearch = sort === "relevance";
 
     // 1. Lexical matches through FTS5 over repo name/full_name/description/language/topics.
-    let lexIds: number[] = [];
-    if (lexicalQuery) {
-      const lexResult = await db.execute({
-        sql: `SELECT r.id,
-                     bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
-              FROM user_repos ur
-              JOIN repos r ON r.id = ur.repo_id
-              JOIN repos_fts ON repos_fts.rowid = r.id
-              WHERE ur.user_id = ?
-                AND repos_fts MATCH ?
-              ORDER BY rank ASC, r.stargazers_count DESC
-              LIMIT 500`,
-        args: [userId, lexicalQuery],
-      });
-      lexIds = lexResult.rows.map((r) => r.id as number);
-    }
+    const lexIdsPromise = lexicalQuery
+      ? db.execute({
+          sql: `SELECT r.id,
+                       bm25(repos_fts, 10.0, 14.0, 3.0, 1.5, 2.5) AS rank
+                FROM user_repos ur
+                JOIN repos r ON r.id = ur.repo_id
+                JOIN repos_fts ON repos_fts.rowid = r.id
+                WHERE ur.user_id = ?
+                  AND repos_fts MATCH ?
+                ORDER BY rank ASC, r.stargazers_count DESC
+                LIMIT 500`,
+          args: [userId, lexicalQuery],
+        }).then((result) => result.rows.map((r) => r.id as number))
+      : Promise.resolve([]);
 
     // 2. Semantic matches via vector_top_k. Pull distance, drop the noisy tail.
     //    vector_top_k is global; user filtering happens in the main query.
-    let semIds: number[] = [];
-    try {
-      if (await hasEmbeddings(userId)) {
-        const queryEmbedding = await generateEmbedding(expandedSearchQuery(q));
-        const vectorResult = await db.execute({
-          sql: `SELECT re.repo_id,
-                       vector_distance_cos(re.embedding, vector(?)) AS dist
-                FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
-                JOIN repo_embeddings re ON re.rowid = vt.id
-                ORDER BY dist ASC`,
-          args: [
-            JSON.stringify(queryEmbedding),
-            JSON.stringify(queryEmbedding),
-            VEC_TOP_K,
-          ],
-        });
-        semIds = vectorResult.rows
-          .filter((r) => (r.dist as number) <= VEC_DIST_MAX)
-          .map((r) => r.repo_id as number);
-      }
-    } catch (e) {
-      console.warn("Semantic search failed:", e);
-    }
+    const semIdsPromise = useSemanticSearch
+      ? hasEmbeddings(userId)
+          .then(async (hasUserEmbeddings) => {
+            if (!hasUserEmbeddings) return [];
+            const queryEmbedding = await generateEmbedding(expandedSearchQuery(q));
+            const vectorResult = await db.execute({
+              sql: `SELECT re.repo_id,
+                           vector_distance_cos(re.embedding, vector(?)) AS dist
+                    FROM vector_top_k('idx_repo_embeddings_vec', vector(?), ?) AS vt
+                    JOIN repo_embeddings re ON re.rowid = vt.id
+                    ORDER BY dist ASC`,
+              args: [
+                JSON.stringify(queryEmbedding),
+                JSON.stringify(queryEmbedding),
+                VEC_TOP_K,
+              ],
+            });
+            return vectorResult.rows
+              .filter((r) => (r.dist as number) <= VEC_DIST_MAX)
+              .map((r) => r.repo_id as number);
+          })
+          .catch((e) => {
+            console.warn("Semantic search failed:", e);
+            return [];
+          })
+      : Promise.resolve([]);
 
     // 3. RRF fusion of the two ranked lists.
-    const fused = blendSearchIds(lexIds, semIds, RRF_K);
+    const [lexIds, semIds] = await Promise.all([lexIdsPromise, semIdsPromise]);
+    const fused = useSemanticSearch ? blendSearchIds(lexIds, semIds, RRF_K) : lexIds;
 
     if (fused.length > 0) {
       rankedRepoIds = fused;
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
   const useRankedOrder =
     rankedRepoIds &&
     rankedRepoIds.length > 0 &&
-    (sort === "relevance" || sort === "starred");
+    sort === "relevance";
   const orderByMap: Record<string, string> = {
     relevance: "ur.starred_at DESC",
     starred: "ur.starred_at DESC",
