@@ -4,6 +4,11 @@ export const REPO_AI_METADATA_MODEL =
   process.env.AI_GATEWAY_CHAT_MODEL || "@cf/meta/llama-3.1-8b-instruct";
 
 const MAX_TEXT_LENGTH = 1800;
+const REQUEST_TIMEOUT_MS = parseInt(
+  process.env.AI_GATEWAY_TIMEOUT_MS || "30000",
+  10
+);
+const MAX_ATTEMPTS = parseInt(process.env.AI_GATEWAY_MAX_ATTEMPTS || "2", 10);
 const CATEGORIES = [
   "ai-agents",
   "ai-evals",
@@ -94,29 +99,30 @@ export async function generateRepoAiMetadata(
     throw new Error("AI_GATEWAY_URL and AI_GATEWAY_API_KEY are required");
   }
 
-  const res = await fetch(`${url}/v1/chat/completions`, {
+  const body = JSON.stringify({
+    model: REPO_AI_METADATA_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You produce strict JSON for software repository classification.",
+      },
+      {
+        role: "user",
+        content: buildRepoAiMetadataPrompt(repo),
+      },
+    ],
+    temperature: 0.1,
+    max_tokens: 260,
+  });
+  const res = await fetchWithRetry(`${url}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
       "x-gateway-project-id": "starboard",
     },
-    body: JSON.stringify({
-      model: REPO_AI_METADATA_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You produce strict JSON for software repository classification.",
-        },
-        {
-          role: "user",
-          content: buildRepoAiMetadataPrompt(repo),
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 260,
-    }),
+    body,
   });
 
   if (!res.ok) {
@@ -132,6 +138,34 @@ export async function generateRepoAiMetadata(
   return normalizeRepoAiMetadata(
     parseJsonObject(json.choices?.[0]?.message?.content || "{}")
   );
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.status < 500 && res.status !== 429) return res;
+      lastError = new Error(`retryable AI response ${res.status}`);
+    } catch (error) {
+      clearTimeout(timeout);
+      lastError = error;
+    }
+
+    if (attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("AI metadata request failed");
 }
 
 export function normalizeRepoAiMetadata(value: unknown): RepoAiMetadata {
