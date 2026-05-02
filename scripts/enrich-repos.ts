@@ -13,7 +13,8 @@
  *   ENRICH_LIMIT          — repos to enrich this run, default 50
  *   ENRICH_HARD_LIMIT     — safety cap for one run, default 200
  *   MIN_STARS_FLOOR      — minimum stars to enrich, default 5000
- *   AI_GATEWAY_CHAT_MODEL — router chat model, default gpt-4o-mini
+ *   AI_GATEWAY_REASONING_EFFORT     — free-AI router effort, default medium
+ *   AI_GATEWAY_MIN_REASONING_LEVEL  — free-AI minimum model level, default medium
  */
 
 import { type Client, createClient, type InStatement } from "@libsql/client";
@@ -22,7 +23,7 @@ import {
   generateRepoAiMetadata,
   HEURISTIC_REPO_AI_METADATA_MODEL,
   inferRepoAiMetadata,
-  REPO_AI_METADATA_MODEL,
+  REPO_AI_METADATA_ROUTE,
   type RepoAiMetadata,
   repoAiSourceHash,
   type RepoMetadataSource,
@@ -113,10 +114,7 @@ async function generateMetadataSafely(
   repo: PendingRepo
 ): Promise<{ metadata: RepoAiMetadata; model: string }> {
   try {
-    return {
-      metadata: await generateRepoAiMetadata(repo),
-      model: REPO_AI_METADATA_MODEL,
-    };
+    return generateRepoAiMetadata(repo);
   } catch (error) {
     if (!ALLOW_HEURISTIC_FALLBACK) throw error;
     const message = error instanceof Error ? error.message : String(error);
@@ -142,7 +140,7 @@ async function main() {
   });
 
   console.info(
-    `[enrich] model=${REPO_AI_METADATA_MODEL} limit=${LIMIT} hard_limit=${HARD_LIMIT} min_stars=${MIN_STARS_FLOOR} heuristic_fallback=${ALLOW_HEURISTIC_FALLBACK}`
+    `[enrich] route=${REPO_AI_METADATA_ROUTE} limit=${LIMIT} hard_limit=${HARD_LIMIT} min_stars=${MIN_STARS_FLOOR} heuristic_fallback=${ALLOW_HEURISTIC_FALLBACK}`
   );
   const pending = await loadPending(db, LIMIT);
   console.info(`[enrich] ${pending.length} repos need AI metadata`);

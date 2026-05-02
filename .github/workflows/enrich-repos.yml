@@ -11,10 +11,14 @@ on:
         description: 'Safety cap for this run'
         required: false
         default: '200'
-      chat_model:
-        description: 'free-ai router model for taxonomy generation'
+      reasoning_effort:
+        description: 'free-ai router reasoning effort: auto, low, medium, high'
         required: false
-        default: 'gpt-4o-mini'
+        default: 'medium'
+      min_reasoning_level:
+        description: 'minimum free-ai model reasoning level: low, medium, high'
+        required: false
+        default: 'medium'
 
 concurrency:
   group: enrich-repos
@@ -53,7 +57,8 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           AI_GATEWAY_URL: ${{ secrets.AI_GATEWAY_URL }}
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
-          AI_GATEWAY_CHAT_MODEL: ${{ github.event.inputs.chat_model || 'gpt-4o-mini' }}
+          AI_GATEWAY_REASONING_EFFORT: ${{ github.event.inputs.reasoning_effort || 'medium' }}
+          AI_GATEWAY_MIN_REASONING_LEVEL: ${{ github.event.inputs.min_reasoning_level || 'medium' }}
           ENRICH_LIMIT: ${{ github.event.inputs.enrich_limit || '50' }}
           ENRICH_HARD_LIMIT: ${{ github.event.inputs.hard_limit || '200' }}
           MIN_STARS_FLOOR: '5000'

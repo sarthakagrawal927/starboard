@@ -1,7 +1,17 @@
 import { textHash } from "./embeddings";
 
-export const REPO_AI_METADATA_MODEL =
-  process.env.AI_GATEWAY_CHAT_MODEL || "gpt-4o-mini";
+const REASONING_EFFORTS = ["auto", "low", "medium", "high"] as const;
+const MIN_REASONING_LEVELS = ["low", "medium", "high"] as const;
+
+export const REPO_AI_METADATA_REASONING_EFFORT = normalizeReasoningEffort(
+  process.env.AI_GATEWAY_REASONING_EFFORT,
+  "medium"
+);
+export const REPO_AI_METADATA_MIN_REASONING_LEVEL = normalizeMinReasoningLevel(
+  process.env.AI_GATEWAY_MIN_REASONING_LEVEL,
+  "medium"
+);
+export const REPO_AI_METADATA_ROUTE = `free-ai-router:reasoning=${REPO_AI_METADATA_REASONING_EFFORT}:min=${REPO_AI_METADATA_MIN_REASONING_LEVEL}`;
 export const HEURISTIC_REPO_AI_METADATA_MODEL = "heuristic-taxonomy-v1";
 
 const MAX_TEXT_LENGTH = 1800;
@@ -44,12 +54,23 @@ export interface RepoAiMetadata {
   keywords: string[];
 }
 
+export interface RepoAiMetadataResult {
+  metadata: RepoAiMetadata;
+  model: string;
+}
+
 interface ChatCompletionResponse {
+  model?: string;
   choices?: {
     message?: {
       content?: string;
     };
   }[];
+  x_gateway?: {
+    provider?: string;
+    model?: string;
+    reasoning_effort?: string;
+  };
 }
 
 export function buildRepoAiSourceText(repo: RepoMetadataSource): string {
@@ -93,14 +114,14 @@ ${buildRepoAiSourceText(repo)}`;
 
 export async function generateRepoAiMetadata(
   repo: RepoMetadataSource
-): Promise<RepoAiMetadata> {
+): Promise<RepoAiMetadataResult> {
   const url = process.env.AI_GATEWAY_URL;
   const key = process.env.AI_GATEWAY_API_KEY;
   if (!url || !key) {
     throw new Error("AI_GATEWAY_URL and AI_GATEWAY_API_KEY are required");
   }
 
-  const res = await fetchWithRetry(`${url}/v1/chat/completions`, {
+  const res = await fetchWithRetry(`${url.replace(/\/+$/, "")}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -108,7 +129,6 @@ export async function generateRepoAiMetadata(
       "x-gateway-project-id": "starboard",
     },
     body: JSON.stringify({
-      model: REPO_AI_METADATA_MODEL,
       messages: [
         {
           role: "system",
@@ -122,7 +142,10 @@ export async function generateRepoAiMetadata(
       ],
       temperature: 0.1,
       max_tokens: 260,
-    }),
+      reasoning_effort: REPO_AI_METADATA_REASONING_EFFORT,
+      min_reasoning_level: REPO_AI_METADATA_MIN_REASONING_LEVEL,
+      project_id: "starboard",
+      }),
   });
 
   if (!res.ok) {
@@ -134,8 +157,12 @@ export async function generateRepoAiMetadata(
     throw new Error(`AI metadata API error ${res.status}: ${body}${hint}`);
   }
 
-  const content = chatCompletionText((await res.json()) as ChatCompletionResponse);
-  return normalizeRepoAiMetadata(parseJsonObject(content || "{}"));
+  const json = (await res.json()) as ChatCompletionResponse;
+  const content = chatCompletionText(json);
+  return {
+    metadata: normalizeRepoAiMetadata(parseJsonObject(content || "{}")),
+    model: chatCompletionModel(json),
+  };
 }
 
 export function inferRepoAiMetadata(repo: RepoMetadataSource): RepoAiMetadata {
@@ -226,6 +253,40 @@ function inferCategory(text: string): string {
 
 function chatCompletionText(json: ChatCompletionResponse): string {
   return json.choices?.[0]?.message?.content || "";
+}
+
+function chatCompletionModel(json: ChatCompletionResponse): string {
+  const provider = cleanText(json.x_gateway?.provider, 64);
+  const model = cleanText(json.x_gateway?.model || json.model, 160);
+  const reasoning = cleanText(json.x_gateway?.reasoning_effort, 16);
+  if (provider && model) {
+    return reasoning
+      ? `${provider}:${model}:reasoning=${reasoning}`
+      : `${provider}:${model}`;
+  }
+  return model || REPO_AI_METADATA_ROUTE;
+}
+
+function normalizeReasoningEffort(
+  value: string | undefined,
+  fallback: (typeof REASONING_EFFORTS)[number]
+): (typeof REASONING_EFFORTS)[number] {
+  return REASONING_EFFORTS.includes(
+    value as (typeof REASONING_EFFORTS)[number]
+  )
+    ? (value as (typeof REASONING_EFFORTS)[number])
+    : fallback;
+}
+
+function normalizeMinReasoningLevel(
+  value: string | undefined,
+  fallback: (typeof MIN_REASONING_LEVELS)[number]
+): (typeof MIN_REASONING_LEVELS)[number] {
+  return MIN_REASONING_LEVELS.includes(
+    value as (typeof MIN_REASONING_LEVELS)[number]
+  )
+    ? (value as (typeof MIN_REASONING_LEVELS)[number])
+    : fallback;
 }
 
 async function fetchWithRetry(
