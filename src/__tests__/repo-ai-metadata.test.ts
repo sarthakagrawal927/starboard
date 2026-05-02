@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRepoAiMetadataPrompt,
   buildRepoAiSourceText,
+  inferRepoAiMetadata,
   normalizeRepoAiMetadata,
   repoAiSourceHash,
 } from "@/lib/repo-ai-metadata";
@@ -55,5 +56,13 @@ describe("repo AI metadata helpers", () => {
     const normalized = normalizeRepoAiMetadata({ category: "magic" });
 
     expect(normalized.category).toBe("unknown");
+  });
+
+  it("infers eval taxonomy without a model call", () => {
+    const metadata = inferRepoAiMetadata(repo);
+
+    expect(metadata.category).toBe("ai-evals");
+    expect(metadata.keywords).toContain("evals");
+    expect(metadata.use_cases).toContain("evaluate prompts");
   });
 });

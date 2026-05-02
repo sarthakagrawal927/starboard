@@ -2,6 +2,7 @@ import { textHash } from "./embeddings";
 
 export const REPO_AI_METADATA_MODEL =
   process.env.AI_GATEWAY_CHAT_MODEL || "@cf/meta/llama-3.1-8b-instruct";
+export const HEURISTIC_REPO_AI_METADATA_MODEL = "heuristic-taxonomy-v1";
 
 const MAX_TEXT_LENGTH = 1800;
 const REQUEST_TIMEOUT_MS = parseInt(
@@ -49,6 +50,13 @@ interface ChatCompletionResponse {
       content?: string;
     };
   }[];
+}
+
+interface WorkersAiResponse {
+  result?: {
+    response?: string;
+  };
+  response?: string;
 }
 
 export function buildRepoAiSourceText(repo: RepoMetadataSource): string {
@@ -99,31 +107,48 @@ export async function generateRepoAiMetadata(
     throw new Error("AI_GATEWAY_URL and AI_GATEWAY_API_KEY are required");
   }
 
-  const body = JSON.stringify({
-    model: REPO_AI_METADATA_MODEL,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You produce strict JSON for software repository classification.",
-      },
-      {
-        role: "user",
-        content: buildRepoAiMetadataPrompt(repo),
-      },
-    ],
-    temperature: 0.1,
-    max_tokens: 260,
-  });
-  const res = await fetchWithRetry(`${url}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-      "x-gateway-project-id": "starboard",
-    },
-    body,
-  });
+  const prompt = [
+    "You produce strict JSON for software repository classification.",
+    buildRepoAiMetadataPrompt(repo),
+  ].join("\n\n");
+  const res = REPO_AI_METADATA_MODEL.startsWith("@cf/")
+    ? await fetchWithRetry(workersAiModelUrl(url, REPO_AI_METADATA_MODEL), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+          "x-gateway-project-id": "starboard",
+        },
+        body: JSON.stringify({
+          prompt,
+          temperature: 0.1,
+          max_tokens: 260,
+        }),
+      })
+    : await fetchWithRetry(`${url}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+          "x-gateway-project-id": "starboard",
+        },
+        body: JSON.stringify({
+          model: REPO_AI_METADATA_MODEL,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You produce strict JSON for software repository classification.",
+            },
+            {
+              role: "user",
+              content: buildRepoAiMetadataPrompt(repo),
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 260,
+        }),
+      });
 
   if (!res.ok) {
     const body = await res.text();
@@ -134,10 +159,109 @@ export async function generateRepoAiMetadata(
     throw new Error(`AI metadata API error ${res.status}: ${body}${hint}`);
   }
 
-  const json = (await res.json()) as ChatCompletionResponse;
-  return normalizeRepoAiMetadata(
-    parseJsonObject(json.choices?.[0]?.message?.content || "{}")
-  );
+  const content = REPO_AI_METADATA_MODEL.startsWith("@cf/")
+    ? workersAiResponseText((await res.json()) as WorkersAiResponse)
+    : chatCompletionText((await res.json()) as ChatCompletionResponse);
+  return normalizeRepoAiMetadata(parseJsonObject(content || "{}"));
+}
+
+export function inferRepoAiMetadata(repo: RepoMetadataSource): RepoAiMetadata {
+  const source = buildRepoAiSourceText(repo).toLowerCase();
+  const topics = Array.isArray(repo.topics)
+    ? repo.topics
+    : parseJsonStringArray(repo.topics);
+  const topicText = topics.join(" ").toLowerCase();
+  const text = `${source} ${topicText}`;
+  const category = inferCategory(text);
+  const keywords = new Set<string>(topics.map((topic) => topic.toLowerCase()));
+  const subcategories = new Set<string>();
+  const useCases = new Set<string>();
+
+  for (const rule of TAXONOMY_RULES) {
+    if (!rule.pattern.test(text)) continue;
+    for (const keyword of rule.keywords) keywords.add(keyword);
+    for (const subcategory of rule.subcategories) subcategories.add(subcategory);
+    for (const useCase of rule.use_cases) useCases.add(useCase);
+  }
+
+  if (repo.language) keywords.add(repo.language.toLowerCase());
+
+  return {
+    summary: repo.description?.trim() || `${repo.full_name} repository.`,
+    category,
+    subcategories: Array.from(subcategories).slice(0, 5),
+    use_cases: Array.from(useCases).slice(0, 5),
+    keywords: Array.from(keywords).filter(Boolean).slice(0, 10),
+  };
+}
+
+const TAXONOMY_RULES = [
+  {
+    pattern: /\b(eval|evals|evaluation|benchmark|promptfoo|deepeval|ragas|lm-evaluation-harness|testing)\b/,
+    category: "ai-evals",
+    subcategories: ["llm evals", "testing"],
+    use_cases: ["evaluate prompts", "compare model outputs"],
+    keywords: ["evals", "evaluation", "benchmark", "llm testing"],
+  },
+  {
+    pattern: /\b(agent|agents|langchain|langgraph|llamaindex|crewai|autogen|workflow)\b/,
+    category: "ai-agents",
+    subcategories: ["agent framework", "workflow orchestration"],
+    use_cases: ["build ai agents", "orchestrate tools"],
+    keywords: ["agents", "agent framework", "tool calling"],
+  },
+  {
+    pattern: /\b(rag|retrieval|embedding|vector|semantic search)\b/,
+    category: "ai-rag",
+    subcategories: ["retrieval", "semantic search"],
+    use_cases: ["build rag apps", "search knowledge bases"],
+    keywords: ["rag", "retrieval", "embeddings", "semantic search"],
+  },
+  {
+    pattern: /\b(observability|tracing|monitoring|telemetry|langfuse|helicone|phoenix|opik)\b/,
+    category: "ai-observability",
+    subcategories: ["observability", "tracing"],
+    use_cases: ["monitor llm apps", "trace production issues"],
+    keywords: ["observability", "tracing", "monitoring", "telemetry"],
+  },
+  {
+    pattern: /\b(react|vue|svelte|next\.?js|frontend|ui|css|tailwind)\b/,
+    category: "frontend",
+    subcategories: ["frontend", "ui"],
+    use_cases: ["build user interfaces", "ship web apps"],
+    keywords: ["frontend", "ui", "web"],
+  },
+  {
+    pattern: /\b(database|postgres|sqlite|mysql|redis|vector database|db)\b/,
+    category: "database",
+    subcategories: ["database", "storage"],
+    use_cases: ["store application data", "query data"],
+    keywords: ["database", "storage", "query"],
+  },
+] as const;
+
+function inferCategory(text: string): string {
+  for (const rule of TAXONOMY_RULES) {
+    if (rule.pattern.test(text)) return rule.category;
+  }
+  if (/\b(cli|terminal|command line)\b/.test(text)) return "cli-tooling";
+  if (/\b(security|auth|vulnerability|scan)\b/.test(text)) return "security";
+  if (/\b(test|testing|mock|assert)\b/.test(text)) return "testing";
+  if (/\b(framework|server|api)\b/.test(text)) return "app-framework";
+  return "library";
+}
+
+function workersAiModelUrl(baseUrl: string, model: string): string {
+  const normalized = baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
+  return `${normalized}/${model}`;
+}
+
+function workersAiResponseText(json: WorkersAiResponse): string {
+  return json.result?.response || json.response || "";
+}
+
+function chatCompletionText(json: ChatCompletionResponse): string {
+  return json.choices?.[0]?.message?.content || "";
 }
 
 async function fetchWithRetry(

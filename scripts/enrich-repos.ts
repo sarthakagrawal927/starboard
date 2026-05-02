@@ -20,7 +20,10 @@ import { type Client, createClient, type InStatement } from "@libsql/client";
 
 import {
   generateRepoAiMetadata,
+  HEURISTIC_REPO_AI_METADATA_MODEL,
+  inferRepoAiMetadata,
   REPO_AI_METADATA_MODEL,
+  type RepoAiMetadata,
   repoAiSourceHash,
   type RepoMetadataSource,
 } from "../src/lib/repo-ai-metadata";
@@ -30,6 +33,8 @@ const HARD_LIMIT = parseInt(process.env.ENRICH_HARD_LIMIT || "200", 10);
 const LIMIT = Math.min(Math.max(REQUESTED_LIMIT || 0, 0), HARD_LIMIT);
 const MIN_STARS_FLOOR = parseInt(process.env.MIN_STARS_FLOOR || "5000", 10);
 const DELAY_MS = parseInt(process.env.ENRICH_DELAY_MS || "500", 10);
+const ALLOW_HEURISTIC_FALLBACK =
+  process.env.ENRICH_ALLOW_HEURISTIC_FALLBACK !== "0";
 
 interface PendingRepo extends RepoMetadataSource {
   id: number;
@@ -76,7 +81,7 @@ async function loadPending(db: Client, limit: number): Promise<PendingRepo[]> {
 }
 
 async function upsertMetadata(db: Client, repo: PendingRepo) {
-  const metadata = await generateRepoAiMetadata(repo);
+  const { metadata, model } = await generateMetadataSafely(repo);
   const stmt: InStatement = {
     sql: `INSERT INTO repo_ai_metadata
             (repo_id, summary, category, subcategories, use_cases, keywords, source_hash, model)
@@ -98,10 +103,31 @@ async function upsertMetadata(db: Client, repo: PendingRepo) {
       JSON.stringify(metadata.use_cases),
       JSON.stringify(metadata.keywords),
       repoAiSourceHash(repo),
-      REPO_AI_METADATA_MODEL,
+      model,
     ],
   };
   await db.execute(stmt);
+}
+
+async function generateMetadataSafely(
+  repo: PendingRepo
+): Promise<{ metadata: RepoAiMetadata; model: string }> {
+  try {
+    return {
+      metadata: await generateRepoAiMetadata(repo),
+      model: REPO_AI_METADATA_MODEL,
+    };
+  } catch (error) {
+    if (!ALLOW_HEURISTIC_FALLBACK) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[enrich] AI metadata failed for ${repo.full_name}; using heuristic fallback: ${message}`
+    );
+    return {
+      metadata: inferRepoAiMetadata(repo),
+      model: HEURISTIC_REPO_AI_METADATA_MODEL,
+    };
+  }
 }
 
 async function main() {
@@ -116,7 +142,7 @@ async function main() {
   });
 
   console.info(
-    `[enrich] model=${REPO_AI_METADATA_MODEL} limit=${LIMIT} hard_limit=${HARD_LIMIT} min_stars=${MIN_STARS_FLOOR}`
+    `[enrich] model=${REPO_AI_METADATA_MODEL} limit=${LIMIT} hard_limit=${HARD_LIMIT} min_stars=${MIN_STARS_FLOOR} heuristic_fallback=${ALLOW_HEURISTIC_FALLBACK}`
   );
   const pending = await loadPending(db, LIMIT);
   console.info(`[enrich] ${pending.length} repos need AI metadata`);
