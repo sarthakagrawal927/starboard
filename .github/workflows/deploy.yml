@@ -2,6 +2,18 @@ name: Deploy to Cloudflare Workers
 on:
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'src/**'
+      - 'public/**'
+      - 'patches/**'
+      - 'next.config.ts'
+      - 'open-next.config.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'postcss.config.mjs'
+      - 'tsconfig.json'
+      - 'wrangler.jsonc'
 
 jobs:
   deploy:
@@ -17,3 +29,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: deploy
+      - name: Smoke check production
+        run: curl --fail --silent --show-error --retry 3 --retry-delay 5 --max-time 20 https://starboard.sarthakagrawal927.workers.dev/ > /dev/null
