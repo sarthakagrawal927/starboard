@@ -9,6 +9,7 @@ import {
   Loader2,
   LogOut,
   Menu,
+  RadioTower,
   RefreshCw,
   Search,
   Star,
@@ -73,6 +74,7 @@ export function TopBar({
   const { data: session } = useSession();
   const pathname = usePathname();
   const isDiscover = pathname?.startsWith("/discover");
+  const isRadar = pathname?.startsWith("/radar");
   const userAvatar = session?.user?.image
     ? getAvatarImageAttrs(session.user.image, 32)
     : null;
@@ -116,7 +118,18 @@ export function TopBar({
         </Button>
         <Button
           asChild
-          variant={!isDiscover ? "secondary" : "ghost"}
+          variant={isRadar ? "secondary" : "ghost"}
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+        >
+          <Link href="/radar">
+            <RadioTower className="size-3.5" />
+            Radar
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant={!isDiscover && !isRadar ? "secondary" : "ghost"}
           size="sm"
           className="h-7 gap-1.5 px-2 text-xs"
         >

@@ -96,6 +96,10 @@ export async function POST() {
           JSON.stringify(repo.topics), repo.created_at, repo.updated_at,
         ],
       });
+      statements.push({
+        sql: "INSERT INTO repo_star_snapshots (repo_id, stargazers_count) VALUES (?, ?)",
+        args: [repo.id, repo.stargazers_count],
+      });
     }
 
     for (const repo of added) {
