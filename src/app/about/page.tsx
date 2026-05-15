@@ -31,7 +31,7 @@ export default function AboutPage() {
           <li>
             <strong>Radar.</strong> Auto-classifies stars into release /
             maintenance / momentum lanes. Flags archived repos and ones that
-            haven't shipped in 6 or 12 months.
+            haven&apos;t shipped in 6 or 12 months.
           </li>
           <li>
             <strong>Stack builder.</strong> Curate themed bundles of starred
@@ -39,14 +39,14 @@ export default function AboutPage() {
           </li>
           <li>
             <strong>Tags + lists.</strong> Bulk-organize across hundreds of
-            stars with auto-suggested tags from each repo's metadata.
+            stars with auto-suggested tags from each repo&apos;s metadata.
           </li>
         </ul>
       </section>
 
       <section className="mt-8 space-y-2 text-sm leading-6">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          What it isn't
+          What it isn&apos;t
         </h2>
         <p>
           A starring service. Star and unstar through GitHub normally —
