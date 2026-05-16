@@ -3,12 +3,36 @@
 import { signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
+import { captureAuthFailure } from "@/lib/foundry-monitoring";
 
 export function SignInButton() {
+  async function handleSignIn() {
+    try {
+      const result = await signIn("github", { callbackUrl: "/stars", redirect: false });
+      if (result?.error) {
+        captureAuthFailure({
+          provider: "github",
+          stage: "signin",
+          reason: result.error,
+          source: "sign-in-button",
+        });
+      } else if (result?.url) {
+        window.location.href = result.url;
+      }
+    } catch (error) {
+      captureAuthFailure({
+        provider: "github",
+        stage: "signin",
+        reason: error instanceof Error ? error.message : "GitHub sign-in failed",
+        source: "sign-in-button",
+      });
+    }
+  }
+
   return (
     <Button
       size="lg"
-      onClick={() => signIn("github", { callbackUrl: "/stars" })}
+      onClick={() => void handleSignIn()}
       className="h-12 gap-3 px-8 text-base"
     >
       <svg
